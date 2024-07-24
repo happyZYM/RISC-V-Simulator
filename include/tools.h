@@ -24,10 +24,10 @@ using dark::max_ssize_t;
 
 template<dark::concepts::bit_type _Tp>
 constexpr auto to_unsigned(const _Tp &x) {
-	return static_cast<dark::max_size_t>(x);
+	return static_cast<max_size_t>(x);
 }
 
 template<dark::concepts::bit_type _Tp>
 constexpr auto to_signed(const _Tp &x) {
-	return static_cast<dark::max_ssize_t>(sign_extend(x));
+	return static_cast<max_ssize_t>(static_cast<max_size_t>(sign_extend(x)));
 }

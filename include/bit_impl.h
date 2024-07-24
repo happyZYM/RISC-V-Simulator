@@ -13,7 +13,7 @@ constexpr auto int_concat(max_size_t arg, auto... args) {
 
 template<std::size_t _Old, std::size_t _New = kMaxLength>
 constexpr auto sign_extend(max_size_t val) {
-	static_assert(_Old < _New, "sign_extend: _Old should be less than _New");
+	static_assert(_Old <= _New, "sign_extend: _Old should be less than _New");
 	struct {
 		max_ssize_t _M_data : _Old;
 	} tmp;
