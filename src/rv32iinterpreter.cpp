@@ -9,6 +9,11 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#ifdef DEBUG
+#define DEBUG_CERR std::cerr
+#else
+#define DEBUG_CERR if(0) std::cerr
+#endif
 inline uint8_t ReadBit(uint32_t data, int pos) { return (data >> pos) & 1; }
 inline void WriteBit(uint32_t &data, int pos, uint8_t bit) {
   data &= ~(1 << pos);
@@ -75,7 +80,7 @@ ExecuteFunc Decode(uint32_t instr) {
     funct7 = 0;
   }
   uint8_t second_key = funct3 | (funct7 << 3);
-  std::cerr << "Decoding, opcode=" << std::hex << (int)opcode << " second_key=" << std::dec << (int)second_key
+  DEBUG_CERR << "Decoding, opcode=" << std::hex << (int)opcode << " second_key=" << std::dec << (int)second_key
             << std::endl;
   if (ExecuteFuncMap.find({opcode, second_key}) == ExecuteFuncMap.end()) {
     throw std::runtime_error("Unsupported instruction");
@@ -130,7 +135,7 @@ class RV32IInterpreter {
 
   void PrintRegisters() {
     for (int i = 0; i < 32; i++) {
-      std::cerr << "x" << i << "=" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << reg[i]
+      DEBUG_CERR << "x" << i << "=" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << reg[i]
                 << std::endl;
     }
   }
@@ -150,7 +155,7 @@ class RV32IInterpreter {
       int addr, tmp;
       std::vector<uint8_t> buf;
       fin >> addr;
-      // std::cerr << "begin:" << std::hex << addr << std::endl;
+      // DEBUG_CERR << "begin:" << std::hex << addr << std::endl;
       while (fin >> tmp) {
         buf.push_back(tmp);
       }
@@ -159,7 +164,7 @@ class RV32IInterpreter {
       }
       for (int i = 0; i < buf.size(); i++) {
         dat[addr + i] = buf[i];
-        // std::cerr << std::hex << addr + i << ' ' << std::uppercase << std::setw(2) << std::setfill('0') << std::hex
+        // DEBUG_CERR << std::hex << addr + i << ' ' << std::uppercase << std::setw(2) << std::setfill('0') << std::hex
         // << (int)buf[i] << std::endl;
       }
       fin.clear();
@@ -168,10 +173,10 @@ class RV32IInterpreter {
     memset(reg, 0, sizeof(reg));
   }
   bool Fetch() {
-    std::cerr<<"Fetching PC: "<<std::hex<<PC<<std::endl;
+    DEBUG_CERR<<"Fetching PC: "<<std::hex<<PC<<std::endl;
     IR = *reinterpret_cast<uint32_t *>(&dat[PC]);
     if (IR == 0x0FF00513) {
-      // std::cerr<<"ready to exit"<<std::endl;
+      // DEBUG_CERR<<"ready to exit"<<std::endl;
       return false;
     }
     return true;
@@ -188,8 +193,8 @@ class RV32IInterpreter {
       // std::cout<<"PC: "<<std::hex<<PC<<std::endl;
       PrintRegisters();
       Decode(IR)(*this, IR);
-      std::cerr << std::endl;
-      std::cerr<<"instruction to Fetch: "<<std::hex<<PC<<std::endl<<std::endl;
+      DEBUG_CERR << std::endl;
+      DEBUG_CERR<<"instruction to Fetch: "<<std::hex<<PC<<std::endl<<std::endl;
     }
     // now set exit_code
     exit_code = reg[10] & 255;
@@ -206,9 +211,9 @@ int main() {
 
 void Execute_lui(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "lui: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "lui: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint32_t imm = instruction & 0xFFFFF000;
   interpreter.reg[rd] = imm;
@@ -217,9 +222,9 @@ void Execute_lui(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_auipc(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "auipc: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "auipc: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint32_t imm = instruction & 0xFFFFF000;
   interpreter.reg[rd] = interpreter.PC + imm;
@@ -228,9 +233,9 @@ void Execute_auipc(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_jal(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "jal: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "jal: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint32_t rd = (instruction >> 7) & 31;
   interpreter.reg[rd] = interpreter.PC + 4;
   interpreter.reg[0]=0;
@@ -255,16 +260,16 @@ void Execute_jal(RV32IInterpreter &interpreter, uint32_t instruction) {
 
   // 更新PC
   int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
-  std::cerr << "offset=" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << offset << std::endl;
-  std::cerr << "offset_signed=" << std::dec << offset_signed << std::endl;
+  DEBUG_CERR << "offset=" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << offset << std::endl;
+  DEBUG_CERR << "offset_signed=" << std::dec << offset_signed << std::endl;
   interpreter.PC += offset_signed;
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_jalr(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "jalr: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "jalr: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint32_t t = interpreter.PC + 4;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t offset = instruction >> 20;
@@ -280,13 +285,13 @@ void Execute_jalr(RV32IInterpreter &interpreter, uint32_t instruction) {
   uint8_t rd = (instruction >> 7) & 31;
   interpreter.reg[rd] = t;
   interpreter.reg[0]=0;
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_beq(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "beq: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "beq: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -315,13 +320,13 @@ void Execute_beq(RV32IInterpreter &interpreter, uint32_t instruction) {
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_bne(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "bne: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "bne: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -350,13 +355,13 @@ void Execute_bne(RV32IInterpreter &interpreter, uint32_t instruction) {
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_blt(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "blt: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "blt: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -387,13 +392,13 @@ void Execute_blt(RV32IInterpreter &interpreter, uint32_t instruction) {
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_bge(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "bge: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "bge: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -424,13 +429,13 @@ void Execute_bge(RV32IInterpreter &interpreter, uint32_t instruction) {
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_bltu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "bltu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "bltu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -459,13 +464,13 @@ void Execute_bltu(RV32IInterpreter &interpreter, uint32_t instruction) {
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_bgeu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "bgeu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "bgeu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -494,13 +499,13 @@ void Execute_bgeu(RV32IInterpreter &interpreter, uint32_t instruction) {
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
-  std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
+  DEBUG_CERR << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_lb(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "lb: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "lb: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t offset = instruction >> 20;
@@ -525,9 +530,9 @@ void Execute_lb(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_lh(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "lh: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "lh: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t offset = instruction >> 20;
@@ -552,9 +557,9 @@ void Execute_lh(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_lw(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "lw: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "lw: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t offset = instruction >> 20;
@@ -574,9 +579,9 @@ void Execute_lw(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_lbu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "lbu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "lbu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t offset = instruction >> 20;
@@ -596,9 +601,9 @@ void Execute_lbu(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_lhu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "lhu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "lhu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t offset = instruction >> 20;
@@ -618,9 +623,9 @@ void Execute_lhu(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sb(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sb: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sb: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -640,9 +645,9 @@ void Execute_sb(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sh(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sh: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sh: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -662,9 +667,9 @@ void Execute_sh(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sw(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sw: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sw: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
   uint32_t offset = 0;
@@ -684,9 +689,9 @@ void Execute_sw(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_addi(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "addi: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "addi: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t imm = instruction >> 20;
@@ -701,9 +706,9 @@ void Execute_addi(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_slti(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "slti: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "slti: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t imm = instruction >> 20;
@@ -720,9 +725,9 @@ void Execute_slti(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sltiu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sltiu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sltiu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t imm = instruction >> 20;
@@ -739,9 +744,9 @@ void Execute_sltiu(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_xori(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "xori: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "xori: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t imm = instruction >> 20;
@@ -755,7 +760,7 @@ void Execute_xori(RV32IInterpreter &interpreter, uint32_t instruction) {
   interpreter.PC += 4;
 }
 void Execute_ori(RV32IInterpreter &interpreter, uint32_t instruction) {
-  std::cerr << "ori: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "ori: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t imm = instruction >> 20;
@@ -770,9 +775,9 @@ void Execute_ori(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_andi(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "andi: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "andi: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint32_t imm = instruction >> 20;
@@ -787,9 +792,9 @@ void Execute_andi(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_slli(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "slli: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "slli: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t shamt = (instruction >> 20) & 31;
@@ -799,9 +804,9 @@ void Execute_slli(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_srli(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "srli: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "srli: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t shamt = (instruction >> 20) & 31;
@@ -811,9 +816,9 @@ void Execute_srli(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_srai(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "srai: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "srai: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t shamt = (instruction >> 20) & 31;
@@ -827,9 +832,9 @@ void Execute_srai(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_add(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "add: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "add: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -839,9 +844,9 @@ void Execute_add(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sub(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sub: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sub: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -851,9 +856,9 @@ void Execute_sub(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sll(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sll: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sll: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -864,9 +869,9 @@ void Execute_sll(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_slt(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "slt: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "slt: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -878,9 +883,9 @@ void Execute_slt(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sltu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sltu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sltu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -892,9 +897,9 @@ void Execute_sltu(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_xor(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "xor: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "xor: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -904,9 +909,9 @@ void Execute_xor(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_srl(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "srl: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "srl: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -917,9 +922,9 @@ void Execute_srl(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_sra(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "sra: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "sra: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -934,9 +939,9 @@ void Execute_sra(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_or(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "or: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "or: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
@@ -946,9 +951,9 @@ void Execute_or(RV32IInterpreter &interpreter, uint32_t instruction) {
 }
 void Execute_and(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
-  std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
+  DEBUG_CERR << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
-  std::cerr << "and: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
+  DEBUG_CERR << "and: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint8_t rd = (instruction >> 7) & 31;
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t rs2 = (instruction >> 20) & 31;
