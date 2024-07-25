@@ -128,6 +128,13 @@ class RV32IInterpreter {
   friend void Execute_or(RV32IInterpreter &interpreter, uint32_t instruction);
   friend void Execute_and(RV32IInterpreter &interpreter, uint32_t instruction);
 
+  void PrintRegisters() {
+    for (int i = 0; i < 32; i++) {
+      std::cerr << "x" << i << "=" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << reg[i]
+                << std::endl;
+    }
+  }
+
  public:
   RV32IInterpreter() {
     dat.reserve(1 << 20);
@@ -161,6 +168,7 @@ class RV32IInterpreter {
     memset(reg, 0, sizeof(reg));
   }
   bool Fetch() {
+    std::cerr<<"Fetching PC: "<<std::hex<<PC<<std::endl;
     IR = *reinterpret_cast<uint32_t *>(&dat[PC]);
     if (IR == 0x0FF00513) {
       // std::cerr<<"ready to exit"<<std::endl;
@@ -177,7 +185,11 @@ class RV32IInterpreter {
      */
     while (Fetch()) {
       // uint8_t opcode=IR&127;
+      // std::cout<<"PC: "<<std::hex<<PC<<std::endl;
+      PrintRegisters();
       Decode(IR)(*this, IR);
+      std::cerr << std::endl;
+      std::cerr<<"instruction to Fetch: "<<std::hex<<PC<<std::endl<<std::endl;
     }
     // now set exit_code
     exit_code = reg[10] & 255;
@@ -188,7 +200,7 @@ int main() {
   RV32IInterpreter interpreter;
   interpreter.LoadProgram(std::cin);
   interpreter.RunProgram();
-  std::cout << (int)interpreter.GetExitCode() << std::endl;
+  std::cout <<std::dec<< (int)interpreter.GetExitCode() << std::endl;
   return 0;
 }
 
@@ -200,6 +212,7 @@ void Execute_lui(RV32IInterpreter &interpreter, uint32_t instruction) {
   uint8_t rd = (instruction >> 7) & 31;
   uint32_t imm = instruction & 0xFFFFF000;
   interpreter.reg[rd] = imm;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_auipc(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -210,6 +223,7 @@ void Execute_auipc(RV32IInterpreter &interpreter, uint32_t instruction) {
   uint8_t rd = (instruction >> 7) & 31;
   uint32_t imm = instruction & 0xFFFFF000;
   interpreter.reg[rd] = interpreter.PC + imm;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_jal(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -219,17 +233,18 @@ void Execute_jal(RV32IInterpreter &interpreter, uint32_t instruction) {
   std::cerr << "jal: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
   uint32_t rd = (instruction >> 7) & 31;
   interpreter.reg[rd] = interpreter.PC + 4;
+  interpreter.reg[0]=0;
   uint32_t offset = 0;
   // 提取并组合立即数
-  WriteBit(offset, 20, ReadBit(instruction, 31));  // imm[20]
+  WriteBit(offset, 20, ReadBit(instruction, 31));
   for (int i = 12; i <= 19; ++i) {
-    WriteBit(offset, i, ReadBit(instruction, i));  // imm[19:10]
+    WriteBit(offset, i, ReadBit(instruction, i));
   }
-  WriteBit(offset, 9, ReadBit(instruction, 20));  // imm[9]
+  WriteBit(offset, 11, ReadBit(instruction, 20));
   for (int i = 1; i <= 10; ++i) {
-    WriteBit(offset, i, ReadBit(instruction, i + 20));  // imm[8:1]
+    WriteBit(offset, i, ReadBit(instruction, i + 20));
   }
-  WriteBit(offset, 0, 0);  // imm[0] 总是0
+  WriteBit(offset, 0, 0);
 
   // 符号扩展
   if (ReadBit(offset, 20)) {
@@ -239,7 +254,10 @@ void Execute_jal(RV32IInterpreter &interpreter, uint32_t instruction) {
   }
 
   // 更新PC
-  interpreter.PC += offset;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  std::cerr << "offset=" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << offset << std::endl;
+  std::cerr << "offset_signed=" << std::dec << offset_signed << std::endl;
+  interpreter.PC += offset_signed;
   std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_jalr(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -257,9 +275,11 @@ void Execute_jalr(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  interpreter.PC = (interpreter.reg[rs1] + offset) & 0xFFFFFFFE;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  interpreter.PC = (interpreter.reg[rs1] + offset_signed) & 0xFFFFFFFE;
   uint8_t rd = (instruction >> 7) & 31;
   interpreter.reg[rd] = t;
+  interpreter.reg[0]=0;
   std::cerr << "now PC=" << std::hex << interpreter.PC << std::endl;
 }
 void Execute_beq(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -290,7 +310,8 @@ void Execute_beq(RV32IInterpreter &interpreter, uint32_t instruction) {
 
   // 比较寄存器值并决定是否跳转
   if (interpreter.reg[rs1] == interpreter.reg[rs2]) {
-    interpreter.PC += offset;
+    int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+    interpreter.PC += offset_signed;
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
@@ -324,7 +345,8 @@ void Execute_bne(RV32IInterpreter &interpreter, uint32_t instruction) {
 
   // 比较寄存器值并决定是否跳转
   if (interpreter.reg[rs1] != interpreter.reg[rs2]) {
-    interpreter.PC += offset;
+    int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+    interpreter.PC += offset_signed;
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
@@ -360,7 +382,8 @@ void Execute_blt(RV32IInterpreter &interpreter, uint32_t instruction) {
   int32_t rs1_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs1]);
   int32_t rs2_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs2]);
   if (rs1_val < rs2_val) {
-    interpreter.PC += offset;
+    int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+    interpreter.PC += offset_signed;
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
@@ -396,7 +419,8 @@ void Execute_bge(RV32IInterpreter &interpreter, uint32_t instruction) {
   int32_t rs1_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs1]);
   int32_t rs2_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs2]);
   if (rs1_val >= rs2_val) {
-    interpreter.PC += offset;
+    int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+    interpreter.PC += offset_signed;
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
@@ -430,7 +454,8 @@ void Execute_bltu(RV32IInterpreter &interpreter, uint32_t instruction) {
 
   // 比较寄存器值并决定是否跳转
   if (interpreter.reg[rs1] < interpreter.reg[rs2]) {
-    interpreter.PC += offset;
+    int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+    interpreter.PC += offset_signed;
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
@@ -464,7 +489,8 @@ void Execute_bgeu(RV32IInterpreter &interpreter, uint32_t instruction) {
 
   // 比较寄存器值并决定是否跳转
   if (interpreter.reg[rs1] >= interpreter.reg[rs2]) {
-    interpreter.PC += offset;
+    int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+    interpreter.PC += offset_signed;
   } else {
     interpreter.PC += 4;  // 如果不相等，PC简单地加4（下一条指令）
   }
@@ -485,14 +511,16 @@ void Execute_lb(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  uint32_t val = interpreter.dat[addr] & 0xFF;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  uint32_t val = interpreter.dat[addr];
   if (ReadBit(val, 7)) {
     for (int i = 8; i < 32; ++i) {
       WriteBit(val, i, 1);
     }
   }
   interpreter.reg[rd] = val;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_lh(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -510,14 +538,16 @@ void Execute_lh(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  uint32_t val = interpreter.dat[addr] & 0xFFFF;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  uint32_t val = *(reinterpret_cast<uint16_t*>(&interpreter.dat[addr]));
   if (ReadBit(val, 15)) {
     for (int i = 16; i < 32; ++i) {
       WriteBit(val, i, 1);
     }
   }
   interpreter.reg[rd] = val;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_lw(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -535,9 +565,11 @@ void Execute_lw(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  uint32_t val = interpreter.dat[addr];
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  uint32_t val = *(reinterpret_cast<uint32_t*>(&interpreter.dat[addr]));
   interpreter.reg[rd] = val;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_lbu(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -555,9 +587,11 @@ void Execute_lbu(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  uint32_t val = interpreter.dat[addr] & 0xFF;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  uint32_t val = interpreter.dat[addr];
   interpreter.reg[rd] = val;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_lhu(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -575,9 +609,11 @@ void Execute_lhu(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  uint32_t val = interpreter.dat[addr] & 0xFFFF;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  uint32_t val = *(reinterpret_cast<uint16_t*>(&interpreter.dat[addr]));
   interpreter.reg[rd] = val;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_sb(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -597,7 +633,8 @@ void Execute_sb(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
   interpreter.dat[addr] = interpreter.reg[rs2] & 0xFF;
   interpreter.PC += 4;
 }
@@ -618,8 +655,9 @@ void Execute_sh(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  interpreter.dat[addr] = interpreter.reg[rs2] & 0xFFFF;
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  *reinterpret_cast<uint16_t *>(&interpreter.dat[addr]) = interpreter.reg[rs2] & 0xFFFF;
   interpreter.PC += 4;
 }
 void Execute_sw(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -639,8 +677,9 @@ void Execute_sw(RV32IInterpreter &interpreter, uint32_t instruction) {
       WriteBit(offset, i, 1);
     }
   }
-  uint32_t addr = interpreter.reg[rs1] + offset;
-  interpreter.dat[addr] = interpreter.reg[rs2];
+  int32_t offset_signed = *reinterpret_cast<int32_t *>(&offset);
+  uint32_t addr = interpreter.reg[rs1] + offset_signed;
+  *reinterpret_cast<uint32_t *>(&interpreter.dat[addr])=interpreter.reg[rs2];
   interpreter.PC += 4;
 }
 void Execute_addi(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -657,6 +696,7 @@ void Execute_addi(RV32IInterpreter &interpreter, uint32_t instruction) {
     }
   }
   interpreter.reg[rd] = interpreter.reg[rs1] + imm;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_slti(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -675,6 +715,7 @@ void Execute_slti(RV32IInterpreter &interpreter, uint32_t instruction) {
   int32_t rs1_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs1]);
   int32_t signed_imm = *reinterpret_cast<int32_t *>(&imm);
   interpreter.reg[rd] = rs1_val < signed_imm ? 1 : 0;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_sltiu(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -693,6 +734,7 @@ void Execute_sltiu(RV32IInterpreter &interpreter, uint32_t instruction) {
   uint32_t rs1_val = interpreter.reg[rs1];
   uint32_t unsigned_imm = imm;
   interpreter.reg[rd] = rs1_val < unsigned_imm ? 1 : 0;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_xori(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -709,6 +751,7 @@ void Execute_xori(RV32IInterpreter &interpreter, uint32_t instruction) {
     }
   }
   interpreter.reg[rd] = interpreter.reg[rs1] ^ imm;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_ori(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -722,6 +765,7 @@ void Execute_ori(RV32IInterpreter &interpreter, uint32_t instruction) {
     }
   }
   interpreter.reg[rd] = interpreter.reg[rs1] | imm;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_andi(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -738,6 +782,7 @@ void Execute_andi(RV32IInterpreter &interpreter, uint32_t instruction) {
     }
   }
   interpreter.reg[rd] = interpreter.reg[rs1] & imm;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_slli(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -749,6 +794,7 @@ void Execute_slli(RV32IInterpreter &interpreter, uint32_t instruction) {
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t shamt = (instruction >> 20) & 31;
   interpreter.reg[rd] = interpreter.reg[rs1] << shamt;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_srli(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -760,6 +806,7 @@ void Execute_srli(RV32IInterpreter &interpreter, uint32_t instruction) {
   uint8_t rs1 = (instruction >> 15) & 31;
   uint8_t shamt = (instruction >> 20) & 31;
   interpreter.reg[rd] = interpreter.reg[rs1] >> shamt;
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_srai(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -775,6 +822,7 @@ void Execute_srai(RV32IInterpreter &interpreter, uint32_t instruction) {
   for (int i = 31; i > 31 - shamt; --i) {
     WriteBit(interpreter.reg[rd], i, sign_bit);
   }
+  interpreter.reg[0]=0;
   interpreter.PC += 4;
 }
 void Execute_add(RV32IInterpreter &interpreter, uint32_t instruction) {
@@ -782,119 +830,129 @@ void Execute_add(RV32IInterpreter &interpreter, uint32_t instruction) {
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "add: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]+interpreter.reg[rs2];
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] + interpreter.reg[rs2];
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_sub(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "sub: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]-interpreter.reg[rs2];
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] - interpreter.reg[rs2];
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_sll(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "sll: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  uint8_t shamt=interpreter.reg[rs2]&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]<<shamt;
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  uint8_t shamt = interpreter.reg[rs2] & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] << shamt;
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_slt(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "slt: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  int32_t rs1_val=*reinterpret_cast<int32_t *>(&interpreter.reg[rs1]);
-  int32_t rs2_val=*reinterpret_cast<int32_t *>(&interpreter.reg[rs2]);
-  interpreter.reg[rd]=rs1_val<rs2_val?1:0;
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  int32_t rs1_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs1]);
+  int32_t rs2_val = *reinterpret_cast<int32_t *>(&interpreter.reg[rs2]);
+  interpreter.reg[rd] = rs1_val < rs2_val ? 1 : 0;
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_sltu(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "sltu: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  uint32_t rs1_val=interpreter.reg[rs1];
-  uint32_t rs2_val=interpreter.reg[rs2];
-  interpreter.reg[rd]=rs1_val<rs2_val?1:0;
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  uint32_t rs1_val = interpreter.reg[rs1];
+  uint32_t rs2_val = interpreter.reg[rs2];
+  interpreter.reg[rd] = rs1_val < rs2_val ? 1 : 0;
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_xor(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "xor: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]^interpreter.reg[rs2];
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] ^ interpreter.reg[rs2];
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_srl(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "srl: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  uint8_t shamt=interpreter.reg[rs2]&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]>>shamt;
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  uint8_t shamt = interpreter.reg[rs2] & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] >> shamt;
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_sra(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "sra: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  uint8_t shamt=interpreter.reg[rs2]&31;
-  uint8_t sign_bit=ReadBit(interpreter.reg[rs1],31);
-  interpreter.reg[rd]=interpreter.reg[rs1]>>shamt;
-  for(int i=31;i>31-shamt;--i){
-    WriteBit(interpreter.reg[rd],i,sign_bit);
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  uint8_t shamt = interpreter.reg[rs2] & 31;
+  uint8_t sign_bit = ReadBit(interpreter.reg[rs1], 31);
+  interpreter.reg[rd] = interpreter.reg[rs1] >> shamt;
+  for (int i = 31; i > 31 - shamt; --i) {
+    WriteBit(interpreter.reg[rd], i, sign_bit);
   }
-  interpreter.PC+=4;
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_or(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "or: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]|interpreter.reg[rs2];
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] | interpreter.reg[rs2];
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
 void Execute_and(RV32IInterpreter &interpreter, uint32_t instruction) {
   ++interpreter.counter;
   std::cerr << "executing ins count: " << std::dec << interpreter.counter << " PC= " << std::hex << std::uppercase
             << interpreter.PC << std::endl;
   std::cerr << "and: instruction=" << std::hex << std::setw(8) << std::setfill('0') << instruction << std::endl;
-  uint8_t rd=(instruction>>7)&31;
-  uint8_t rs1=(instruction>>15)&31;
-  uint8_t rs2=(instruction>>20)&31;
-  interpreter.reg[rd]=interpreter.reg[rs1]&interpreter.reg[rs2];
-  interpreter.PC+=4;
+  uint8_t rd = (instruction >> 7) & 31;
+  uint8_t rs1 = (instruction >> 15) & 31;
+  uint8_t rs2 = (instruction >> 20) & 31;
+  interpreter.reg[rd] = interpreter.reg[rs1] & interpreter.reg[rs2];
+  interpreter.reg[0]=0;
+  interpreter.PC += 4;
 }
