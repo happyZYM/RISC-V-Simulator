@@ -1,0 +1,1 @@
+- step1: 完成一个RV32I interpreter（无需支持I-type的指令）

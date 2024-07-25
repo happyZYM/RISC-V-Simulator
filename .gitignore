@@ -2,3 +2,5 @@
 /.github
 /.vscode
 /build
+/.cache
+/.clang-format
