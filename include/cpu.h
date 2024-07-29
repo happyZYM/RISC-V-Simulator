@@ -14,10 +14,10 @@ private:
 	std::vector<std::unique_ptr<ModuleBase>> mod_owned;
 	std::vector<ModuleBase *> modules;
   bool reset_signal = false;
-  dark::Wire<1> halt_signal;
 
 public:
 	unsigned long long cycles = 0;
+  dark::Wire<9> halt_signal;
 
 private:
 	void sync_all() {
@@ -60,13 +60,18 @@ public:
   bool GetResetSignal(){
     return reset_signal;
   }
-	void run(unsigned long long max_cycles = 0, bool shuffle = false) {
+	uint8_t run(unsigned long long max_cycles = 0, bool shuffle = false) {
 		auto func = shuffle ? &CPU::run_once_shuffle : &CPU::run_once;
     reset_signal=true;
 		while (max_cycles == 0 || cycles < max_cycles) {
 			(this->*func)();
       reset_signal=false;
+      uint32_t halt_signal_value = max_size_t(halt_signal);
+      if(halt_signal_value &(1<<9)) {
+        return halt_signal_value&0xff;
+      }
     }
+    return 255;
 	}
 };
 

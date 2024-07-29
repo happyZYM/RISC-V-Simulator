@@ -39,7 +39,7 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
       ready <= 1;
       return;
     }
-    if(bool(force_clear_signal)) {
+    if(bool(force_clear_receiver)) {
       status <= 0;
       ready <= 1;
       return;

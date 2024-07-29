@@ -1,3 +1,4 @@
+For design and description, see <https://www.wolai.com/zymbox/qsUPoFaTyy88NWHKrjFKtW>
 # RISC-V Simulator Template
 
 A template which enables you to write verilog-like C++ code.
