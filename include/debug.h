@@ -5,6 +5,13 @@
 #endif
 #include <source_location>
 
+#ifdef _DEBUG
+#define DEBUG_CERR std::cerr
+#else
+#define DEBUG_CERR if(0) std::cerr
+#endif
+#include <iostream>
+#include <iomanip>
 namespace dark::debug {
 
 /**

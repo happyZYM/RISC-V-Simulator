@@ -1,9 +1,11 @@
 #pragma once
 #include "module.h"
+#include "wire.h"
 #include <algorithm>
 #include <memory>
 #include <random>
 #include <vector>
+
 
 namespace dark {
 
@@ -11,6 +13,8 @@ class CPU {
 private:
 	std::vector<std::unique_ptr<ModuleBase>> mod_owned;
 	std::vector<ModuleBase *> modules;
+  bool reset_signal = false;
+  dark::Wire<1> halt_signal;
 
 public:
 	unsigned long long cycles = 0;
@@ -53,10 +57,16 @@ public:
 			module->work();
 		sync_all();
 	}
+  bool GetResetSignal(){
+    return reset_signal;
+  }
 	void run(unsigned long long max_cycles = 0, bool shuffle = false) {
 		auto func = shuffle ? &CPU::run_once_shuffle : &CPU::run_once;
-		while (max_cycles == 0 || cycles < max_cycles)
+    reset_signal=true;
+		while (max_cycles == 0 || cycles < max_cycles) {
 			(this->*func)();
+      reset_signal=false;
+    }
 	}
 };
 
