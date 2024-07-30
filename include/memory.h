@@ -12,12 +12,14 @@ struct Memory_Input {
   dark::Wire<4> request_type_input;
   dark::Wire<32> address_input;
   dark::Wire<32> data_input;
+  dark::Wire<5> request_ROB_index;
   dark::Wire<1> reset;
   dark::Wire<1> force_clear_receiver;
 };
 struct Memory_Output {
-  dark::Register<1> ready;
-  dark::Register<32> data_output;
+  dark::Register<2> data_sign;
+  dark::Register<5> completed_memins_ROB_index;
+  dark::Register<32> completed_memins_read_data;
 };
 struct Memory_Private {
   dark::Register<3> status;
@@ -36,12 +38,12 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
     if (bool(reset)) {
       // do some initialization
       status <= 0;
-      ready <= 1;
+      data_sign <= 1;
       return;
     }
     if(bool(force_clear_receiver)) {
       status <= 0;
-      ready <= 1;
+      data_sign <= 1;
       return;
     }
     max_size_t request_type_signal = max_size_t(request_type_input);
@@ -57,18 +59,17 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
         return;
       }
       status <= 0;
-      ready <= 1;
       if(max_size_t(cur_opt_type) == 0b01) {
         size_t len=1<<max_size_t(cur_opt_bytes);
         switch(len) {
           case 1:
-            data_output <= memory_data[max_size_t(cur_opt_addr)];
+            completed_memins_read_data <= memory_data[max_size_t(cur_opt_addr)];
             break;
           case 2:
-            data_output <= *reinterpret_cast<uint16_t*>(&memory_data[max_size_t(cur_opt_addr)]);
+            completed_memins_read_data <= *reinterpret_cast<uint16_t*>(&memory_data[max_size_t(cur_opt_addr)]);
             break;
           case 4:
-            data_output <= *reinterpret_cast<uint32_t*>(&memory_data[max_size_t(cur_opt_addr)]);
+            completed_memins_read_data <= *reinterpret_cast<uint32_t*>(&memory_data[max_size_t(cur_opt_addr)]);
             break;
           default:
             throw std::runtime_error("Invalid bytes");
@@ -89,12 +90,17 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
             throw std::runtime_error("Invalid bytes");
         }
       }
+      data_sign <= 2; // has data and free
       return;
     }
     // now the memory is not busy
-    if (request_type_signal == 0) return;
+    if (request_type_signal == 0)  {
+      data_sign <= 1; // free
+      return;
+    }
     status <= 1;
-    ready <= 0;
+    data_sign <= 0; // busy
+    completed_memins_ROB_index <= request_ROB_index;
     cur_opt_addr <= address_input;
     cur_opt_data <= data_input;
     cur_opt_type <= rw_type;

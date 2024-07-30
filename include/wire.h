@@ -80,6 +80,9 @@ public:
 			 _M_cache(), _M_holds(), _M_assigned() {}
 
 	explicit operator max_size_t() const {
+    #ifdef _DEBUG
+    debug::assert(this->_M_assigned, "Wire is not assigned.");
+    #endif
 		if (this->_M_holds == false) {
 			this->_M_holds = true;
 			this->_M_cache = this->_M_func->call();

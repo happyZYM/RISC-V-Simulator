@@ -80,12 +80,12 @@ concept int_or_bit = int_type<_Tp> || bit_type<std::decay_t<_Tp>>;
 
 template<bit_type _Tp, int_or_bit _Up>
 constexpr auto operator<<(const _Tp &lhs, const _Up &rhs) {
-	return Bit<_Tp::_Bit_Len>(cast(lhs) << (cast(rhs) & kMaxLength));
+	return Bit<_Tp::_Bit_Len>(cast(lhs) << (cast(rhs) & (kMaxLength - 1)));
 }
 
 template<bit_type _Tp, int_or_bit _Up>
 constexpr auto operator>>(const _Tp &lhs, const _Up &rhs) {
-	return Bit<_Tp::_Bit_Len>(cast(lhs) >> (cast(rhs) & kMaxLength));
+	return Bit<_Tp::_Bit_Len>(cast(lhs) >> (cast(rhs) & (kMaxLength - 1)));
 }
 
 template<bit_type _Tp>
