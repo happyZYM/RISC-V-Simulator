@@ -1,6 +1,7 @@
 #pragma once
 #ifndef REGISTERFILE_H
 #include "tools.h"
+namespace ZYM {
 struct RegisterFile_Input {
   // receive control signal from CSU
   dark::Wire<1> reset;
@@ -29,8 +30,9 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
     RegisterFile() {
         // Constructor
     }
-    void update() {
+    void work() {
         // Update function
     }
 };
+}
 #endif

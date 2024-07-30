@@ -1,6 +1,7 @@
 #pragma once
 #ifndef LOADSTOREQUEUE_H
 #include "tools.h"
+namespace ZYM {
 struct LoadStoreQueue_Input {
   // receive control signal from CSU
   dark::Wire<1> reset;
@@ -14,9 +15,24 @@ struct LoadStoreQueue_Input {
   dark::Wire<1> has_decoded_rd;
   dark::Wire<5> decoded_rs1;
   dark::Wire<1> has_decoded_rs1;
+  dark::Wire<1> rs1_is_in_ROB;
+  dark::Wire<32> rs1_in_ROB_value;
   dark::Wire<5> decoded_rs2;
   dark::Wire<1> has_decoded_rs2;
+  dark::Wire<1> rs2_is_in_ROB;
+  dark::Wire<32> rs2_in_ROB_value;
   dark::Wire<32> decoded_imm;
+  // receive data from register file
+  dark::Wire<1> rs1_nodep;
+  dark::Wire<5> rs1_deps;
+  dark::Wire<32> rs1_value;
+  dark::Wire<1> rs2_nodep;
+  dark::Wire<5> rs2_deps;
+  dark::Wire<32> rs2_value;
+  // data from alu
+  dark::Wire<2> alu_status_receiver;
+  dark::Wire<5> completed_aluins_ROB_index;
+  dark::Wire<32> completed_aluins_result;
   // receive status signal from Memory
   dark::Wire<2> mem_data_sign;
   dark::Wire<5> completed_memins_ROB_index;
@@ -32,6 +48,7 @@ struct LoadStoreQueue_Output {
   dark::Register<5> request_ROB_index;
   dark::Register<32> request_address_output;
   dark::Register<32> request_data_output;
+  dark::Register<6> LSQ_remain_space_output;
 };
 struct LoadStoreQueue_Private {
   dark::Register<5> LSQ_head;
@@ -42,8 +59,9 @@ struct LoadStoreQueue: public dark::Module<LoadStoreQueue_Input,LoadStoreQueue_O
     LoadStoreQueue() {
         // Constructor
     }
-    void update() {
+    void work() {
         // Update function
     }
 };
+}
 #endif

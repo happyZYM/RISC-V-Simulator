@@ -16,6 +16,11 @@ struct CentralScheduleUnit_Input {
   dark::Wire<2> mem_status_receiver;
   dark::Wire<5> completed_memins_ROB_index;
   dark::Wire<32> completed_memins_read_data;
+  // data from LoadStoreQueue
+  dark::Wire<4> mem_request_type_input;
+  dark::Wire<32> mem_address_input;
+  dark::Wire<32> mem_data_input;
+  dark::Wire<5> mem_request_ROB_index;
   // data from alu
   dark::Wire<2> alu_status_receiver;
   dark::Wire<5> completed_aluins_ROB_index;
@@ -39,10 +44,17 @@ struct CentralScheduleUnit_Output {
   dark::Register<1> has_decoded_rd;
   dark::Register<5> decoded_rs1;
   dark::Register<1> has_decoded_rs1;
+  dark::Register<1> rs1_is_in_ROB;
+  dark::Register<32> rs1_in_ROB_value;
   dark::Register<5> decoded_rs2;
   dark::Register<1> has_decoded_rs2;
+  dark::Register<1> rs2_is_in_ROB;
+  dark::Register<32> rs2_in_ROB_value;
   dark::Register<32> decoded_imm;
   dark::Register<6> decoded_shamt;
+  dark::Register<1> cache_hit;
+  dark::Register<5> cache_hit_ROB_index;
+  dark::Register<32> cache_hit_data;
 };
 struct ROBRecordType {
   dark::Register<4> state;
