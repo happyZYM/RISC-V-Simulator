@@ -42,7 +42,7 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
       data_sign <= 1;
       return;
     }
-    if(bool(force_clear_receiver)) {
+    if (bool(force_clear_receiver)) {
       status <= 0;
       data_sign <= 1;
       return;
@@ -60,47 +60,63 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
         return;
       }
       status <= 0;
-      if(max_size_t(cur_opt_type) == 0b01) {
-        size_t len=1<<max_size_t(cur_opt_bytes);
-        switch(len) {
-          case 1:
-            completed_memins_read_data <= memory_data[max_size_t(cur_opt_addr)];
+      if (max_size_t(cur_opt_type) == 0b01) {
+        size_t len = 1 << max_size_t(cur_opt_bytes);
+        switch (len) {
+          case 1: {
+            uint32_t tmp = static_cast<max_size_t>(memory_data[max_size_t(cur_opt_addr)]);
+            if (static_cast<max_size_t>(full_ins_id) == 0b01000000011) {
+              // sign exetend
+              if (tmp & 0x80) {
+                tmp |= 0xffffff00;
+              }
+            }
+            completed_memins_read_data <= tmp;
             break;
-          case 2:
-            completed_memins_read_data <= *reinterpret_cast<uint16_t*>(&memory_data[max_size_t(cur_opt_addr)]);
+          }
+          case 2: {
+            uint32_t tmp = *reinterpret_cast<uint16_t *>(&memory_data[max_size_t(cur_opt_addr)]);
+            if (static_cast<max_size_t>(full_ins_id) == 0b01010000011) {
+              // sign exetend
+              if (tmp & 0x8000) {
+                tmp |= 0xffff0000;
+              }
+            }
+            completed_memins_read_data <= tmp;
             break;
+          }
           case 4:
-            completed_memins_read_data <= *reinterpret_cast<uint32_t*>(&memory_data[max_size_t(cur_opt_addr)]);
+            completed_memins_read_data <= *reinterpret_cast<uint32_t *>(&memory_data[max_size_t(cur_opt_addr)]);
             break;
           default:
             throw std::runtime_error("Invalid bytes");
         }
       } else {
-        size_t len=1<<max_size_t(cur_opt_bytes);
-        switch(len) {
+        size_t len = 1 << max_size_t(cur_opt_bytes);
+        switch (len) {
           case 1:
-            memory_data[max_size_t(cur_opt_addr)] = max_size_t(cur_opt_data)&0xff;
+            memory_data[max_size_t(cur_opt_addr)] = max_size_t(cur_opt_data) & 0xff;
             break;
           case 2:
-            *reinterpret_cast<uint16_t*>(&memory_data[max_size_t(cur_opt_addr)]) = max_size_t(cur_opt_data)&0xffff;
+            *reinterpret_cast<uint16_t *>(&memory_data[max_size_t(cur_opt_addr)]) = max_size_t(cur_opt_data) & 0xffff;
             break;
           case 4:
-            *reinterpret_cast<uint32_t*>(&memory_data[max_size_t(cur_opt_addr)]) = max_size_t(cur_opt_data);
+            *reinterpret_cast<uint32_t *>(&memory_data[max_size_t(cur_opt_addr)]) = max_size_t(cur_opt_data);
             break;
           default:
             throw std::runtime_error("Invalid bytes");
         }
       }
-      data_sign <= 2; // has data and free
+      data_sign <= 2;  // has data and free
       return;
     }
     // now the memory is not busy
-    if (request_type_signal == 0)  {
-      data_sign <= 1; // free
+    if (request_type_signal == 0) {
+      data_sign <= 1;  // free
       return;
     }
     status <= 1;
-    data_sign <= 0; // busy
+    data_sign <= 0;  // busy
     completed_memins_ROB_index <= request_ROB_index;
     cur_opt_addr <= address_input;
     cur_opt_data <= data_input;

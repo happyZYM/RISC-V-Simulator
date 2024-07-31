@@ -1,4 +1,5 @@
 #pragma once
+#include "concept.h"
 #ifndef RESERVATIONSTATION_H
 #include <array>
 #include "tools.h"
@@ -59,17 +60,20 @@ struct ReserveStation_Output {
 struct RS_Record {
   dark::Register<2> state;  // 0: no, 1: initializing dependency, 2: waiting for data
   dark::Register<7 + 3 + 1> full_ins_id;
-  dark::Register<32> Vj, Vk;
-  dark::Register<5> Qj, Qk;
+  dark::Register<32> V1, V2;
+  dark::Register<5> Q1, Q2;
+  dark::Register<1> E1, E2;
+  dark::Register<1> D1, D2;  // 1: no dependency, 0: dependency
   dark::Register<5> ins_ROB_index;
   dark::Register<32> ins_self_PC;
   dark::Register<32> ins_imm;
-  dark::Register<32> addr;
+  dark::Register<6> ins_shamt;
 };
 struct ReserveStation_Private {
   dark::Register<6> RS_remaining_space;
   std::array<RS_Record, 32> RS_records;
   dark::Register<1> has_accepted_ins_last_cycle;
+  dark::Register<5> last_cycle_ins_RS_index;
 };
 struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation_Output, ReserveStation_Private> {
   ReserveStation() {
@@ -82,6 +86,7 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
         record.state <= 0;
       }
       RS_remaining_space <= 32;
+      RS_remain_space_output <= 32;
       request_full_id <= 0;
       return;
     }
@@ -90,26 +95,133 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
         record.state <= 0;
       }
       RS_remaining_space <= 32;
+      RS_remain_space_output <= 32;
       request_full_id <= 0;
       return;
     }
+    uint32_t next_remain_space = static_cast<max_size_t>(RS_remaining_space);
     if (bool(is_issuing) && issue_type == 0) {
 #ifdef _DEBUG
-      if (RS_remaining_space == 0 || RS_remaining_space > 32) {
-        std::cerr << "Reserve Station is full, cannot issue new instruction" << std::endl;
-        return;
-      }
+      if (next_remain_space == 0 || next_remain_space > 32)
+        throw std::runtime_error("ReserveStation: next_remain_space is out of range");
 #endif
       has_accepted_ins_last_cycle <= 1;
-      // TODO: to something to accept the instruction
+      // do something to accept the instruction
+      next_remain_space--;
+      uint32_t deposit_index = -1;
+      for (uint32_t i = 0; i < 32; i++) {
+        if (static_cast<max_size_t>(RS_records[i].state) == 0) {
+          deposit_index = i;
+          break;
+        }
+      }
+      dark::debug::assert(deposit_index != -1, "ReserveStation: deposit_index is -1");
+      last_cycle_ins_RS_index <= deposit_index;
+      RS_records[deposit_index].state <= 1;
+      RS_records[deposit_index].full_ins_id <= full_ins_id;
+      RS_records[deposit_index].ins_ROB_index <= issue_ROB_index;
+      RS_records[deposit_index].ins_self_PC <= issuing_PC;
+      RS_records[deposit_index].ins_imm <= decoded_imm;
+      RS_records[deposit_index].ins_shamt <= decoded_shamt;
+      RS_records[deposit_index].E1 <= has_decoded_rs1;
+      RS_records[deposit_index].E2 <= has_decoded_rs2;
+      RS_records[deposit_index].D1 <= 1;
+      RS_records[deposit_index].D2 <= 1;
     } else
       has_accepted_ins_last_cycle <= 0;
+    uint32_t last_idx = static_cast<max_size_t>(last_cycle_ins_RS_index);
+    bool last_cycle_V1_proccessed = false;
+    bool last_cycle_V2_proccessed = false;
     if (bool(has_accepted_ins_last_cycle)) {
       // TODO: now dependency info can be read from the register file, in the mean time, CSU will provide the
       // potentially missing data
+      if (bool(RS_records[last_idx].E1) && bool(rs1_nodep)) {
+        RS_records[last_idx].V1 <= rs1_value;
+        RS_records[last_idx].D1 <= 1;
+        last_cycle_V1_proccessed = true;
+      }
+      if (bool(RS_records[last_idx].E2) && bool(rs2_nodep)) {
+        RS_records[last_idx].V2 <= rs2_value;
+        RS_records[last_idx].D2 <= 1;
+        last_cycle_V2_proccessed = true;
+      }
+      if (bool(RS_records[last_idx].E1) && (!bool(rs1_nodep)) && bool(rs1_is_in_ROB)) {
+        RS_records[last_idx].V1 <= rs1_in_ROB_value;
+        RS_records[last_idx].D1 <= 1;
+        last_cycle_V1_proccessed = true;
+      }
+      if (bool(RS_records[last_idx].E2) && (!bool(rs2_nodep)) && bool(rs2_is_in_ROB)) {
+        RS_records[last_idx].V2 <= rs2_in_ROB_value;
+        RS_records[last_idx].D2 <= 1;
+        last_cycle_V2_proccessed = true;
+      }
     }
     // TODO: now alu, memory (and L0 cache of memory) may provide data to satisfy the dependency
+    bool should_monitor_V1 =
+        bool(has_accepted_ins_last_cycle) && bool(RS_records[last_idx].E1) && (!last_cycle_V1_proccessed);
+    bool should_monitor_V2 =
+        bool(has_accepted_ins_last_cycle) && bool(RS_records[last_idx].E2) && (!last_cycle_V2_proccessed);
+    auto process_listend_data = [&](uint32_t res_ROB_index, uint32_t res_value) -> void {
+      for (uint32_t ptr = 0; ptr < 32; ptr++) {
+        if (RS_records[ptr].state == 0) continue;
+        if ((!bool(has_accepted_ins_last_cycle)) || ptr != last_idx) {
+          dark::debug::assert(RS_records[ptr].state == 2, "RS_records[ptr].state != 2");
+          if (static_cast<max_size_t>(RS_records[ptr].Q1) == res_ROB_index) {
+            RS_records[ptr].V1 <= res_value;
+            RS_records[ptr].D1 <= 1;
+          }
+          if (static_cast<max_size_t>(RS_records[ptr].Q2) == res_ROB_index) {
+            RS_records[ptr].V2 <= res_value;
+            RS_records[ptr].D2 <= 1;
+          }
+        } else {
+          if (should_monitor_V1 && static_cast<max_size_t>(rs1_deps) == res_ROB_index) {
+            RS_records[last_idx].V1 <= res_value;
+            RS_records[last_idx].D1 <= 1;
+            should_monitor_V1 = false;
+          }
+          if (should_monitor_V2 && static_cast<max_size_t>(rs2_deps) == res_ROB_index) {
+            RS_records[last_idx].V2 <= res_value;
+            RS_records[last_idx].D2 <= 1;
+            should_monitor_V2 = false;
+          }
+        }
+        ptr = (ptr + 1) % 32;
+      }
+    };
+    if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
+      process_listend_data(static_cast<max_size_t>(completed_aluins_ROB_index),
+                           static_cast<max_size_t>(completed_aluins_result));
+    }
+    if (static_cast<max_size_t>(mem_status_receiver) == 0b10) {
+      process_listend_data(static_cast<max_size_t>(completed_memins_ROB_index),
+                           static_cast<max_size_t>(completed_memins_read_data));
+    }
+    if (static_cast<max_size_t>(cache_hit) == 1) {
+      process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
+    }
     // TODO: now, we can check if we can execute the instruction, memory and L0 cache will listen to this
+    if (bool(has_accepted_ins_last_cycle)) RS_records[last_idx].state <= 2;
+    bool can_execute = false;
+    for (int i = 0; i < 32; i++) {
+      if (RS_records[last_idx].state.peek() != 2) continue;
+      if (RS_records[last_idx].E1.peek() == 1 && RS_records[last_idx].D1.peek() == 0) continue;
+      if (RS_records[last_idx].E2.peek() == 1 && RS_records[last_idx].D2.peek() == 0) continue;
+      can_execute = true;
+      request_full_id <= RS_records[last_idx].full_ins_id;
+      operand1 <= RS_records[last_idx].V1;
+      operand2 <= RS_records[last_idx].V2;
+      op_imm <= RS_records[last_idx].ins_imm;
+      op_shamt <= RS_records[last_idx].ins_shamt;
+      alu_ins_PC <= RS_records[last_idx].ins_self_PC;
+      request_ROB_index <= RS_records[last_idx].ins_ROB_index;
+      RS_records[last_idx].state <= 0;
+      next_remain_space++;
+      break;
+    }
+    if (!can_execute) request_full_id <= 0;
+    RS_remaining_space <= next_remain_space;
+    RS_remain_space_output <= next_remain_space;
   }
 };
 }  // namespace ZYM
