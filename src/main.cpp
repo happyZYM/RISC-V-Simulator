@@ -37,6 +37,8 @@ int main(int argc, char **argv) {
   // now connect the wires, see the comment and docs for help
   // csu <-> memory
   RWConnect(csu.force_clear_announcer, memory.force_clear_receiver);
+  RWConnect(csu.is_committing, memory.is_committing);
+  RWConnect(csu.commit_ins_ROB_index, memory.commit_ins_ROB_index);
   RWConnect(memory.data_sign, csu.mem_status_receiver);
   RWConnect(memory.completed_memins_ROB_index, csu.completed_memins_ROB_index);
   RWConnect(memory.completed_memins_read_data, csu.completed_memins_read_data);
@@ -59,9 +61,9 @@ int main(int argc, char **argv) {
   RWConnect(csu.rs2_is_in_ROB, lsq.rs2_is_in_ROB);
   RWConnect(csu.rs2_in_ROB_value, lsq.rs2_in_ROB_value);
   RWConnect(csu.decoded_imm, lsq.decoded_imm);
-  RWConnect(csu.cache_hit, lsq.cache_hit);
-  RWConnect(csu.cache_hit_ROB_index, lsq.cache_hit_ROB_index);
-  RWConnect(csu.cache_hit_data, lsq.cache_hit_data);
+  // RWConnect(csu.cache_hit, lsq.cache_hit);
+  // RWConnect(csu.cache_hit_ROB_index, lsq.cache_hit_ROB_index);
+  // RWConnect(csu.cache_hit_data, lsq.cache_hit_data);
   RWConnect(lsq.mem_request_full_ins_id, csu.mem_request_full_ins_id);
   RWConnect(lsq.request_type_output, csu.mem_request_type_input);
   RWConnect(lsq.request_ROB_index, csu.mem_request_ROB_index);
@@ -74,7 +76,7 @@ int main(int argc, char **argv) {
   RWConnect(alu.result, csu.completed_aluins_result);
   RWConnect(alu.completed_alu_resulting_PC, csu.completed_alu_resulting_PC);
   // csu <-> register file
-  RWConnect(csu.force_clear_announcer, rf.force_clear_receiver);
+  // RWConnect(csu.force_clear_announcer, rf.force_clear_receiver);
   RWConnect(csu.is_issuing, rf.is_issuing);
   RWConnect(csu.issue_type, rf.issue_type);
   RWConnect(csu.issue_ROB_index, rf.issue_ROB_index);
@@ -91,6 +93,7 @@ int main(int argc, char **argv) {
   // RWConnect(rf.rs2_nodep, csu.rs2_nodep);
   // RWConnect(rf.rs2_deps, csu.rs2_deps);
   RWConnect(csu.is_committing, rf.is_committing);
+  RWConnect(csu.commit_has_resulting_register, rf.has_resulting_register);
   RWConnect(csu.commit_reg_index, rf.commit_reg_index);
   RWConnect(csu.commit_reg_value, rf.commit_reg_value);
   RWConnect(csu.commit_ins_ROB_index, rf.commit_ins_ROB_index);
@@ -114,9 +117,9 @@ int main(int argc, char **argv) {
   RWConnect(csu.rs2_in_ROB_value, rs.rs2_in_ROB_value);
   RWConnect(csu.decoded_imm, rs.decoded_imm);
   RWConnect(csu.decoded_shamt, rs.decoded_shamt);
-  RWConnect(csu.cache_hit, rs.cache_hit);
-  RWConnect(csu.cache_hit_ROB_index, rs.cache_hit_ROB_index);
-  RWConnect(csu.cache_hit_data, rs.cache_hit_data);
+  // RWConnect(csu.cache_hit, rs.cache_hit);
+  // RWConnect(csu.cache_hit_ROB_index, rs.cache_hit_ROB_index);
+  // RWConnect(csu.cache_hit_data, rs.cache_hit_data);
   RWConnect(rs.RS_remain_space_output, csu.reservestation_emptyspace_receiver);
   // memory <-> lsq
   RWConnect(memory.data_sign, lsq.mem_data_sign);

@@ -43,9 +43,9 @@ struct LoadStoreQueue_Input {
   dark::Wire<5> completed_memins_ROB_index;
   dark::Wire<32> completed_memins_read_data;
   // receive status signal from L0 cache
-  dark::Wire<1> cache_hit;
-  dark::Wire<5> cache_hit_ROB_index;
-  dark::Wire<32> cache_hit_data;
+  // dark::Wire<1> cache_hit;
+  // dark::Wire<5> cache_hit_ROB_index;
+  // dark::Wire<32> cache_hit_data;
 };
 struct LoadStoreQueue_Output {
   // request signal, Memory and the L0 cache in ROB will listen to this
@@ -159,7 +159,7 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
         bool(has_accepted_ins_last_cycle) && bool(LSQ_queue[last_idx].E1) && !last_cycle_V1_proccessed;
     bool should_monitor_V2 =
         bool(has_accepted_ins_last_cycle) && bool(LSQ_queue[last_idx].E2) && !last_cycle_V2_proccessed;
-    // now alu, memory (and L0 cache of memory) may provide data to satisfy the dependency
+    // now alu, memory may provide data to satisfy the dependency
     auto process_listend_data = [&](uint32_t res_ROB_index, uint32_t res_value) -> void {
       uint32_t ptr = static_cast<max_size_t>(LSQ_head);
       while (ptr != static_cast<max_size_t>(LSQ_tail)) {
@@ -196,9 +196,9 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
       process_listend_data(static_cast<max_size_t>(completed_memins_ROB_index),
                            static_cast<max_size_t>(completed_memins_read_data));
     }
-    if (static_cast<max_size_t>(cache_hit) == 1) {
-      process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
-    }
+    // if (static_cast<max_size_t>(cache_hit) == 1) {
+      // process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
+    // }
     if (should_monitor_V1) {
       LSQ_queue[last_idx].D1 <= 0;
       LSQ_queue[last_idx].Q1 <= rs1_deps;

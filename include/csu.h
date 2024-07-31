@@ -1,5 +1,6 @@
 #pragma once
 #include <sys/types.h>
+#include <cstdint>
 #include "concept.h"
 #ifndef CSU_H
 #include <array>
@@ -57,24 +58,27 @@ struct CentralScheduleUnit_Output {
   dark::Register<32> rs2_in_ROB_value;
   dark::Register<32> decoded_imm;
   dark::Register<6> decoded_shamt;
-  dark::Register<1> cache_hit;
-  dark::Register<5> cache_hit_ROB_index;
-  dark::Register<32> cache_hit_data;
+  // dark::Register<1> cache_hit;
+  // dark::Register<5> cache_hit_ROB_index;
+  // dark::Register<32> cache_hit_data;
   dark::Register<1> is_committing;
+  dark::Register<1> commit_has_resulting_register;
   dark::Register<5> commit_reg_index;
   dark::Register<32> commit_reg_value;
   dark::Register<5> commit_ins_ROB_index;
 };
 struct ROBRecordType {
-  dark::Register<4> state;
+  dark::Register<4> state;  // 0: no entry; 1: just issued; 2: waiting; 3: ready to commit
   dark::Register<32> instruction;
+  dark::Register<1> has_resulting_register;
   dark::Register<5> resulting_register_idx;
   dark::Register<32> resulting_register_value;
   dark::Register<1> resulting_PC_ready;
   dark::Register<32> resulting_PC;
-  dark::Register<4> mem_request_type;  // see memory.h
-  dark::Register<32> mem_request_addr;
-  dark::Register<32> mem_request_data;
+  dark::Register<1> PC_mismatch_mark;
+  // dark::Register<4> mem_request_type;  // see memory.h
+  // dark::Register<32> mem_request_addr;
+  // dark::Register<32> mem_request_data;
 };
 struct CentralScheduleUnit_Private {
   dark::Register<32> predicted_PC;
@@ -167,7 +171,7 @@ struct CentralScheduleUnit
       }
       uint8_t funct3 = ins >> 12 & 0x7;
       full_ins_id = opcode | (funct3 << 7);
-    } else if(opcode==0b0110111) {
+    } else if (opcode == 0b0110111) {
       // U-type
       has_decoded_rd = 1;
       has_decoded_rs1 = 0;
@@ -175,19 +179,20 @@ struct CentralScheduleUnit
       decoded_rd = ins >> 7 & 0x1F;
       decoded_imm = ins >> 12;
       full_ins_id = opcode;
-    } else if(opcode==0b1101111) {
+    } else if (opcode == 0b1101111) {
       // J-type
       has_decoded_rd = 1;
       has_decoded_rs1 = 0;
       has_decoded_rs2 = 0;
       decoded_rd = ins >> 7 & 0x1F;
-      decoded_imm = (ins & 0xFF000) | (((ins >> 20) & 1)<<11) | (((ins >> 21) & 0x3FF)<<1) | ((ins >> 31) << 20);
+      decoded_imm = (ins & 0xFF000) | (((ins >> 20) & 1) << 11) | (((ins >> 21) & 0x3FF) << 1) | ((ins >> 31) << 20);
       uint32_t sign_bit = ins >> 31;
       if (sign_bit) {
         decoded_imm = static_cast<uint32_t>(decoded_imm) | 0xFFE00000;
       }
       full_ins_id = opcode;
-    } else throw std::runtime_error("Unknown instruction in Decode");
+    } else
+      throw std::runtime_error("Unknown instruction in Decode");
     return std::make_tuple(full_ins_id, decoded_rd, has_decoded_rd, decoded_rs1, has_decoded_rs1, decoded_rs2,
                            has_decoded_rs2, decoded_imm, decoded_shamt);
   }
@@ -207,12 +212,225 @@ struct CentralScheduleUnit
       ROB_head <= 0;
       ROB_tail <= 0;
       ROB_remain_space <= kROBSize;
+      for (auto &record : ROB_records) {
+        record.state <= 0;
+        record.PC_mismatch_mark <= 0;
+      }
+      has_instruction_issued_last_cycle <= 0;
+      is_issuing <= 0;
+      return;
+    }
+    if (bool(force_clear_announcer)) {
+      force_clear_announcer <= 0;
+      ROB_head <= 0;
+      ROB_tail <= 0;
+      ROB_remain_space <= kROBSize;
+      for (auto &record : ROB_records) {
+        record.state <= 0;
+        record.PC_mismatch_mark <= 0;
+      }
+      predicted_PC <= actual_PC;
+      has_predicted_PC <= 1;
+      has_instruction_issued_last_cycle <= 0;
+      is_issuing <= 0;
+      return;
     }
     // STEP1: try to commit and see if we need to rollback
-    // process memory access request from LSQ
+    uint32_t ROB_next_remain_space = static_cast<max_size_t>(ROB_remain_space);
+    {
+      uint32_t i = -1;
+      for (auto &record : ROB_records) {
+        ++i;
+        if (static_cast<max_size_t>(record.state) != 3) continue;
+        ROB_head <= (static_cast<max_size_t>(ROB_head) + 1) % kROBSize;
+        is_committing <= 1;
+        commit_has_resulting_register <= record.has_resulting_register;
+        commit_reg_index <= record.resulting_register_idx;
+        commit_reg_value <= record.resulting_register_value;
+        commit_ins_ROB_index <= i;
+        actual_PC <= static_cast<max_size_t>(record.resulting_PC);
+        if (static_cast<max_size_t>(record.PC_mismatch_mark) == 1) {
+          force_clear_announcer <= 1;
+        }
+        ROB_next_remain_space++;
+        break;
+      }
+    }
+    if (force_clear_announcer.peek()) {
+      ROB_remain_space <= ROB_next_remain_space;
+      return;
+    }
     // listen to the data from Memory and ALU
+    auto process_data = [&](uint32_t res_ROB_index, uint32_t res_data, uint32_t res_PC) {
+      uint32_t i = -1;
+      for (auto &record : ROB_records) {
+        ++i;
+        if (static_cast<max_size_t>(record.state) != 2) continue;
+        if (i == res_ROB_index) {
+          record.resulting_register_value <= res_data;
+          if (!bool(record.resulting_PC_ready)) {
+            record.resulting_PC <= res_PC;
+            if (res_PC != static_cast<max_size_t>(record.resulting_PC)) {
+              record.PC_mismatch_mark <= 1;
+            }
+            record.resulting_PC_ready <= 1;
+            if ((static_cast<max_size_t>(record.instruction) & 0x7F) == 0b1100111) {
+              has_predicted_PC <= 1;
+              predicted_PC <= record.resulting_PC;
+            }
+          }
+          record.state <= 3;
+        }
+      }
+    };
+    if (static_cast<max_size_t>(mem_status_receiver) == 0b10) {
+      process_data(static_cast<max_size_t>(completed_memins_ROB_index),
+                   static_cast<max_size_t>(completed_memins_read_data), 0);
+    }
+    if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
+      process_data(static_cast<max_size_t>(completed_aluins_ROB_index),
+                   static_cast<max_size_t>(completed_aluins_result),
+                   static_cast<max_size_t>(completed_alu_resulting_PC));
+    }
     // try to issue and check if we need to stall
+    if (bool(has_predicted_PC)) {  // currently not in stall state
+      uint32_t instruction = instruction_fetcher(static_cast<max_size_t>(predicted_PC));
+      auto decoded_tuple = Decode(instruction);
+      uint32_t full_ins_id = static_cast<max_size_t>(std::get<0>(decoded_tuple));
+      uint8_t decoded_rd = static_cast<max_size_t>(std::get<1>(decoded_tuple));
+      uint8_t has_decoded_rd = static_cast<max_size_t>(std::get<2>(decoded_tuple));
+      uint8_t decoded_rs1 = static_cast<max_size_t>(std::get<3>(decoded_tuple));
+      uint8_t has_decoded_rs1 = static_cast<max_size_t>(std::get<4>(decoded_tuple));
+      uint8_t decoded_rs2 = static_cast<max_size_t>(std::get<5>(decoded_tuple));
+      uint8_t has_decoded_rs2 = static_cast<max_size_t>(std::get<6>(decoded_tuple));
+      uint32_t decoded_imm = static_cast<max_size_t>(std::get<7>(decoded_tuple));
+      uint8_t decoded_shamt = static_cast<max_size_t>(std::get<8>(decoded_tuple));
+      if ((full_ins_id & 0x7F) == 0b0000011 || (full_ins_id & 0x7F) == 0b0100011) {
+        // memory instruction
+        int32_t actual_remain_space = static_cast<max_size_t>(load_store_queue_emptyspace_receiver) -
+                                      static_cast<max_size_t>(has_instruction_issued_last_cycle);
+        if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
+          // can issue
+          is_issuing <= 1;
+          has_instruction_issued_last_cycle <= 1;
+          uint32_t tail = static_cast<max_size_t>(ROB_tail);
+          ROB_tail <= (tail + 1) % kROBSize;
+          ROB_next_remain_space--;
+          predicted_PC <= static_cast<max_size_t>(predicted_PC) + 4;
+          ROB_records[tail].state <= 1;
+          ROB_records[tail].instruction <= instruction;
+          ROB_records[tail].has_resulting_register <= has_decoded_rd;
+          ROB_records[tail].resulting_register_idx <= decoded_rd;
+          ROB_records[tail].resulting_PC_ready <= 1;
+          ROB_records[tail].resulting_PC <= static_cast<max_size_t>(predicted_PC) + 4;
+          ROB_records[tail].PC_mismatch_mark <= 0;
+          this->issue_type <= 1;
+          this->issue_ROB_index <= tail;
+          this->full_ins_id <= full_ins_id;
+          this->full_ins <= instruction;
+          this->issuing_PC <= static_cast<max_size_t>(predicted_PC);
+          this->decoded_rd <= decoded_rd;
+          this->has_decoded_rd <= has_decoded_rd;
+          this->decoded_rs1 <= decoded_rs1;
+          this->has_decoded_rs1 <= has_decoded_rs1;
+          this->decoded_rs2 <= decoded_rs2;
+          this->has_decoded_rs2 <= has_decoded_rs2;
+          this->decoded_imm <= decoded_imm;
+          this->decoded_shamt <= decoded_shamt;
+        } else {
+          has_instruction_issued_last_cycle <= 0;
+          is_issuing <= 0;
+        }
+      } else {
+        // alu instruction
+        int32_t actual_remain_space = static_cast<max_size_t>(reservestation_emptyspace_receiver) -
+                                      static_cast<max_size_t>(has_instruction_issued_last_cycle);
+        if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
+          // can issue
+          is_issuing <= 1;
+          has_instruction_issued_last_cycle <= 1;
+          uint32_t tail = static_cast<max_size_t>(ROB_tail);
+          ROB_tail <= (tail + 1) % kROBSize;
+          ROB_next_remain_space--;
+          ROB_records[tail].state <= 1;
+          ROB_records[tail].instruction <= instruction;
+          ROB_records[tail].has_resulting_register <= has_decoded_rd;
+          ROB_records[tail].resulting_register_idx <= decoded_rd;
+          if ((full_ins_id & 0x7F) == 0b1100011 || ((full_ins_id & 0x7F) == 0b1100111) ||
+              ((full_ins_id & 0x7F) == 0b1101111)) {
+            switch (full_ins_id & 0x7F) {
+              case 0b1101111:
+                // jal
+                ROB_records[tail].resulting_PC_ready <= 1;
+                ROB_records[tail].resulting_PC <= static_cast<max_size_t>(predicted_PC) + decoded_imm;
+                break;
+              case 0b1100111:
+                // jalr
+                ROB_records[tail].resulting_PC_ready <= 0;
+                has_predicted_PC <= 0;
+                break;
+              case 0b1100011:
+                // branch
+                ROB_records[tail].resulting_PC_ready <= 0;
+                ROB_records[tail].resulting_PC <= static_cast<max_size_t>(predicted_PC) + decoded_imm;  // just guess
+                break;
+            }
+          } else {
+            ROB_records[tail].resulting_PC_ready <= 1;
+            ROB_records[tail].resulting_PC <= static_cast<max_size_t>(predicted_PC) + 4;
+          }
+          predicted_PC <= ROB_records[tail].resulting_PC.peek();
+          ROB_records[tail].PC_mismatch_mark <= 0;
+          this->issue_type <= 0;
+          this->issue_ROB_index <= tail;
+          this->full_ins_id <= full_ins_id;
+          this->full_ins <= instruction;
+          this->issuing_PC <= static_cast<max_size_t>(predicted_PC);
+          this->decoded_rd <= decoded_rd;
+          this->has_decoded_rd <= has_decoded_rd;
+          this->decoded_rs1 <= decoded_rs1;
+          this->has_decoded_rs1 <= has_decoded_rs1;
+          this->decoded_rs2 <= decoded_rs2;
+          this->has_decoded_rs2 <= has_decoded_rs2;
+          this->decoded_imm <= decoded_imm;
+          this->decoded_shamt <= decoded_shamt;
+        } else {
+          has_instruction_issued_last_cycle <= 0;
+          is_issuing <= 0;
+        }
+      }
+    } else {
+      has_instruction_issued_last_cycle <= 0;
+      is_issuing <= 0;
+    }
     // provide the potentially missing data for instruction issued last cycle
+    if (bool(has_instruction_issued_last_cycle)) {
+      uint8_t rs1 = static_cast<max_size_t>(this->decoded_rs1);
+      uint8_t found_rs1 = 0;
+      uint32_t rs1_v;
+      uint8_t rs2 = static_cast<max_size_t>(this->decoded_rs2);
+      uint8_t found_rs2 = 0;
+      uint32_t rs2_v;
+      for (uint32_t ptr = static_cast<max_size_t>(ROB_head); ptr != static_cast<max_size_t>(ROB_tail);
+           ptr = (ptr + 1) % kROBSize) {
+        if (ROB_records[ptr].state.peek() == 3) {
+          if (static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs1) {
+            rs1_v = ROB_records[ptr].resulting_register_value.peek();
+            found_rs1 = 1;
+          }
+          if (static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs2) {
+            rs2_v = ROB_records[ptr].resulting_register_value.peek();
+            found_rs2 = 1;
+          }
+        }
+      }
+      this->rs1_is_in_ROB <= found_rs1;
+      this->rs1_in_ROB_value <= rs1_v;
+      this->rs2_is_in_ROB <= found_rs2;
+      this->rs2_in_ROB_value <= rs2_v;
+    }
+    // other data
+    ROB_remain_space <= ROB_next_remain_space;
   }
 };
 }  // namespace ZYM

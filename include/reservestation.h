@@ -42,9 +42,9 @@ struct ReserveStation_Input {
   dark::Wire<5> completed_memins_ROB_index;
   dark::Wire<32> completed_memins_read_data;
   // receive status signal from L0 cache(data from Memory)
-  dark::Wire<1> cache_hit;
-  dark::Wire<5> cache_hit_ROB_index;
-  dark::Wire<32> cache_hit_data;
+  // dark::Wire<1> cache_hit;
+  // dark::Wire<5> cache_hit_ROB_index;
+  // dark::Wire<32> cache_hit_data;
 };
 struct ReserveStation_Output {
   // alu will listen for these:
@@ -156,7 +156,7 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
         last_cycle_V2_proccessed = true;
       }
     }
-    // TODO: now alu, memory (and L0 cache of memory) may provide data to satisfy the dependency
+    // TODO: now alu, memory may provide data to satisfy the dependency
     bool should_monitor_V1 =
         bool(has_accepted_ins_last_cycle) && bool(RS_records[last_idx].E1) && (!last_cycle_V1_proccessed);
     bool should_monitor_V2 =
@@ -197,8 +197,16 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
       process_listend_data(static_cast<max_size_t>(completed_memins_ROB_index),
                            static_cast<max_size_t>(completed_memins_read_data));
     }
-    if (static_cast<max_size_t>(cache_hit) == 1) {
-      process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
+    // if (static_cast<max_size_t>(cache_hit) == 1) {
+    // process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
+    // }
+    if (should_monitor_V1) {
+      RS_records[last_idx].Q1 <= rs1_deps;
+      RS_records[last_idx].D1 <= 0;
+    }
+    if (should_monitor_V2) {
+      RS_records[last_idx].Q2 <= rs2_deps;
+      RS_records[last_idx].D2 <= 0;
     }
     // TODO: now, we can check if we can execute the instruction, memory and L0 cache will listen to this
     if (bool(has_accepted_ins_last_cycle)) RS_records[last_idx].state <= 2;
