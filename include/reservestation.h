@@ -50,6 +50,7 @@ struct ReserveStation_Output {
   dark::Register<7 + 3 + 1> request_full_id;
   dark::Register<32> operand1;
   dark::Register<32> operand2;
+  dark::Register<32> alu_ins_PC;
   dark::Register<5> request_ROB_index;
   dark::Register<6> RS_remain_space_output;
 };
