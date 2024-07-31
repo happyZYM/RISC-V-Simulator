@@ -20,6 +20,7 @@ struct CentralScheduleUnit_Input {
   dark::Wire<5> completed_memins_ROB_index;
   dark::Wire<32> completed_memins_read_data;
   // data from LoadStoreQueue
+  dark::Wire<7 + 3 + 1> mem_request_full_ins_id;
   dark::Wire<4> mem_request_type_input;
   dark::Wire<32> mem_address_input;
   dark::Wire<32> mem_data_input;

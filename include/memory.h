@@ -9,12 +9,13 @@
 using dark::max_size_t;
 namespace ZYM {
 struct Memory_Input {
+  dark::Wire<1> reset;
+  dark::Wire<1> force_clear_receiver;
+  dark::Wire<7 + 3 + 1> full_ins_id;
   dark::Wire<4> request_type_input;
   dark::Wire<32> address_input;
   dark::Wire<32> data_input;
   dark::Wire<5> request_ROB_index;
-  dark::Wire<1> reset;
-  dark::Wire<1> force_clear_receiver;
 };
 struct Memory_Output {
   dark::Register<2> data_sign;

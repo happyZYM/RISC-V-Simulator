@@ -62,6 +62,7 @@ int main(int argc, char **argv) {
   RWConnect(csu.cache_hit, lsq.cache_hit);
   RWConnect(csu.cache_hit_ROB_index, lsq.cache_hit_ROB_index);
   RWConnect(csu.cache_hit_data, lsq.cache_hit_data);
+  RWConnect(lsq.mem_request_full_ins_id, csu.mem_request_full_ins_id);
   RWConnect(lsq.request_type_output, csu.mem_request_type_input);
   RWConnect(lsq.request_ROB_index, csu.mem_request_ROB_index);
   RWConnect(lsq.request_address_output, csu.mem_address_input);
@@ -121,6 +122,7 @@ int main(int argc, char **argv) {
   RWConnect(memory.data_sign, lsq.mem_data_sign);
   RWConnect(memory.completed_memins_ROB_index, lsq.completed_memins_ROB_index);
   RWConnect(memory.completed_memins_read_data, lsq.completed_memins_read_data);
+  RWConnect(lsq.mem_request_full_ins_id, memory.full_ins_id);
   RWConnect(lsq.request_type_output, memory.request_type_input);
   RWConnect(lsq.request_ROB_index, memory.request_ROB_index);
   RWConnect(lsq.request_address_output, memory.address_input);
