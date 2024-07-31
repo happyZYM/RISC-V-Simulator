@@ -1,5 +1,6 @@
 #pragma once
 #ifndef LOADSTOREQUEUE_H
+#include <array>
 #include "tools.h"
 namespace ZYM {
 struct LoadStoreQueue_Input {
@@ -9,8 +10,9 @@ struct LoadStoreQueue_Input {
   dark::Wire<1> is_issuing;
   dark::Wire<1> issue_type;
   dark::Wire<5> issue_ROB_index;
-  dark::Wire<7+3+1> full_ins_id;
+  dark::Wire<7 + 3 + 1> full_ins_id;
   dark::Wire<32> full_ins;
+  dark::Wire<32> issuing_PC;
   dark::Wire<5> decoded_rd;
   dark::Wire<1> has_decoded_rd;
   dark::Wire<5> decoded_rs1;
@@ -50,18 +52,64 @@ struct LoadStoreQueue_Output {
   dark::Register<32> request_data_output;
   dark::Register<6> LSQ_remain_space_output;
 };
+struct LSQ_Record {
+  dark::Register<2> state;  // 0: no, 1: initializing dependency, 2: waiting for data
+  dark::Register<7 + 3 + 1> full_ins_id;
+  dark::Register<32> Vj, Vk;
+  dark::Register<5> Qj, Qk;
+  dark::Register<5> ins_ROB_index;
+  dark::Register<32> ins_self_PC;
+  dark::Register<32> ins_imm;
+  dark::Register<32> addr;
+};
 struct LoadStoreQueue_Private {
   dark::Register<5> LSQ_head;
   dark::Register<5> LSQ_tail;
   dark::Register<6> LSQ_remain_space;
+  std::array<LSQ_Record, 32> LSQ_queue;
+  dark::Register<1> has_accepted_ins_last_cycle;
+  dark::Register<5> last_cycle_ins_LSQ_index;
 };
-struct LoadStoreQueue: public dark::Module<LoadStoreQueue_Input,LoadStoreQueue_Output,LoadStoreQueue_Private> {
-    LoadStoreQueue() {
-        // Constructor
+struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue_Output, LoadStoreQueue_Private> {
+  LoadStoreQueue() {
+    // Constructor
+  }
+  void work() {
+    if (bool(reset)) {
+      LSQ_remain_space <= 32;
+      LSQ_head <= 0;
+      LSQ_tail <= 0;
+      for (auto &record : LSQ_queue) {
+        record.state <= 0;
+      }
+      has_accepted_ins_last_cycle <= 0;
+      return;
     }
-    void work() {
-        // Update function
+    if (bool(force_clear_receiver)) {
+      LSQ_remain_space <= 32;
+      LSQ_head <= 0;
+      LSQ_tail <= 0;
+      for (auto &record : LSQ_queue) {
+        record.state <= 0;
+      }
+      has_accepted_ins_last_cycle <= 0;
+      return;
     }
+    if (bool(is_issuing) && issue_type == 1) {
+#ifdef _DEBUG
+      if (LSQ_remain_space == 0 || LSQ_remain_space > 32) throw std::runtime_error("LSQ_remain_space is out of range");
+#endif
+      has_accepted_ins_last_cycle <= 1;
+      // TODO: now we can accept the instruction, that is, to store it in the LSQ
+    } else
+      has_accepted_ins_last_cycle <= 0;
+    if (bool(has_accepted_ins_last_cycle)) {
+      // TODO: now dependency info can be read from the register file, in the mean time, CSU will provide the
+      // potentially missing data
+    }
+    // TODO: now alu, memory (and L0 cache of memory) may provide data to satisfy the dependency
+    // TODO: now, we can check if we can execute the instruction, memory and L0 cache will listen to this
+  }
 };
-}
+}  // namespace ZYM
 #endif

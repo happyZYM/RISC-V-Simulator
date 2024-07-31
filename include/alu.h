@@ -7,6 +7,7 @@ struct ALU_Input {
   dark::Wire<32> operand1;
   dark::Wire<32> operand2;
   dark::Wire<5> request_ROB_index;
+  dark::Wire<32> request_PC;
 };
 struct ALU_Output {
   dark::Register<2> alu_status;
@@ -22,5 +23,5 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
     // Update function
   }
 };
-}
+}  // namespace ZYM
 #endif

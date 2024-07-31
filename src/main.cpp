@@ -47,6 +47,7 @@ int main(int argc, char **argv) {
   RWConnect(csu.issue_ROB_index, lsq.issue_ROB_index);
   RWConnect(csu.full_ins_id, lsq.full_ins_id);
   RWConnect(csu.full_ins, lsq.full_ins);
+  RWConnect(csu.issuing_PC, lsq.issuing_PC);
   RWConnect(csu.decoded_rd, lsq.decoded_rd);
   RWConnect(csu.has_decoded_rd, lsq.has_decoded_rd);
   RWConnect(csu.decoded_rs1, lsq.decoded_rs1);
@@ -84,10 +85,14 @@ int main(int argc, char **argv) {
   RWConnect(csu.has_decoded_rs1, rf.has_decoded_rs1);
   RWConnect(csu.decoded_rs2, rf.decoded_rs2);
   RWConnect(csu.has_decoded_rs2, rf.has_decoded_rs2);
-  RWConnect(rf.rs1_nodep, csu.rs1_nodep);
-  RWConnect(rf.rs1_deps, csu.rs1_deps);
-  RWConnect(rf.rs2_nodep, csu.rs2_nodep);
-  RWConnect(rf.rs2_deps, csu.rs2_deps);
+  // RWConnect(rf.rs1_nodep, csu.rs1_nodep);
+  // RWConnect(rf.rs1_deps, csu.rs1_deps);
+  // RWConnect(rf.rs2_nodep, csu.rs2_nodep);
+  // RWConnect(rf.rs2_deps, csu.rs2_deps);
+  RWConnect(csu.is_committing, rf.is_committing);
+  RWConnect(csu.commit_reg_index, rf.commit_reg_index);
+  RWConnect(csu.commit_reg_value, rf.commit_reg_value);
+  RWConnect(csu.commit_ins_ROB_index, rf.commit_ins_ROB_index);
   // csu <-> reserve station
   RWConnect(csu.force_clear_announcer, rs.force_clear_receiver);
   RWConnect(csu.is_issuing, rs.is_issuing);
@@ -95,6 +100,7 @@ int main(int argc, char **argv) {
   RWConnect(csu.issue_ROB_index, rs.issue_ROB_index);
   RWConnect(csu.full_ins_id, rs.full_ins_id);
   RWConnect(csu.full_ins, rs.full_ins);
+  RWConnect(csu.issuing_PC, rs.issuing_PC);
   RWConnect(csu.decoded_rd, rs.decoded_rd);
   RWConnect(csu.has_decoded_rd, rs.has_decoded_rd);
   RWConnect(csu.decoded_rs1, rs.decoded_rs1);

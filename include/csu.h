@@ -27,10 +27,10 @@ struct CentralScheduleUnit_Input {
   dark::Wire<32> completed_aluins_result;
   dark::Wire<32> completed_alu_resulting_PC;
   // receive data from register file
-  dark::Wire<1> rs1_nodep;
-  dark::Wire<5> rs1_deps;
-  dark::Wire<1> rs2_nodep;
-  dark::Wire<5> rs2_deps;
+  // dark::Wire<1> rs1_nodep;
+  // dark::Wire<5> rs1_deps;
+  // dark::Wire<1> rs2_nodep;
+  // dark::Wire<5> rs2_deps;
 };
 struct CentralScheduleUnit_Output {
   dark::Register<1> force_clear_announcer;
@@ -40,6 +40,7 @@ struct CentralScheduleUnit_Output {
   dark::Register<5> issue_ROB_index;
   dark::Register<7 + 3 + 1> full_ins_id;
   dark::Register<32> full_ins;
+  dark::Register<32> issuing_PC;
   dark::Register<5> decoded_rd;
   dark::Register<1> has_decoded_rd;
   dark::Register<5> decoded_rs1;
@@ -55,6 +56,10 @@ struct CentralScheduleUnit_Output {
   dark::Register<1> cache_hit;
   dark::Register<5> cache_hit_ROB_index;
   dark::Register<32> cache_hit_data;
+  dark::Register<1> is_committing;
+  dark::Register<5> commit_reg_index;
+  dark::Register<32> commit_reg_value;
+  dark::Register<5> commit_ins_ROB_index;
 };
 struct ROBRecordType {
   dark::Register<4> state;
@@ -100,6 +105,11 @@ struct CentralScheduleUnit
       ROB_tail <= 0;
       ROB_remain_space <= kROBSize;
     }
+    // STEP1: try to commit and see if we need to rollback
+    // process memory access request from LSQ
+    // listen to the data from Memory and ALU
+    // try to issue and check if we need to stall
+    // provide the potentially missing data for instruction issued last cycle
   }
 };
 }  // namespace ZYM
