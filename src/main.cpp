@@ -150,6 +150,8 @@ int main(int argc, char **argv) {
   RWConnect(rs.operand2, alu.operand2);
   RWConnect(rs.request_ROB_index, alu.request_ROB_index);
   RWConnect(rs.alu_ins_PC, alu.request_PC);
+  RWConnect(rs.op_imm, alu.imm);
+  RWConnect(rs.op_shamt, alu.shamt);
   RWConnect(alu.alu_status, rs.alu_status_receiver);
   RWConnect(alu.result_ROB_index, rs.completed_aluins_ROB_index);
   RWConnect(alu.result, rs.completed_aluins_result);
