@@ -1,6 +1,6 @@
 #include "tools.h"
 #include <iostream>
-
+unsigned int global_clock=0;
 struct RegFile_Input {
 	Wire <5> rs1_index;		// Read
 	Wire <5> rs2_index;		// Read

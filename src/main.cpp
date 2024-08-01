@@ -6,6 +6,7 @@
 #include "registerfile.h"
 #include "reservestation.h"
 #include "tools.h"
+unsigned int global_clock = 0;
 template <std::size_t N>
 inline static void RWConnect(dark::Register<N> &src, dark::Wire<N> &dest) {
   dest.assign([&]() -> auto & { return src; });
@@ -168,6 +169,6 @@ int main(int argc, char **argv) {
   RWConnect(rf.rs2_deps, rs.rs2_deps);
   RWConnect(rf.rs2_value, rs.rs2_value);
   // now start running
-  std::cout << cpu.run(0, true) << std::endl;
+  std::cout << cpu.run(100, false) << std::endl;
   return 0;
 }

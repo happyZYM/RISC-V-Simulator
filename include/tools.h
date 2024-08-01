@@ -7,8 +7,10 @@
 #include "wire.h"
 #include "module.h"
 #include "cpu.h"
+#include<iostream>
+#include<iomanip>
 
-
+extern unsigned int global_clock;
 using dark::Bit;
 using dark::sign_extend;
 using dark::zero_extend;

@@ -197,7 +197,7 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
                            static_cast<max_size_t>(completed_memins_read_data));
     }
     // if (static_cast<max_size_t>(cache_hit) == 1) {
-      // process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
+    // process_listend_data(static_cast<max_size_t>(cache_hit_ROB_index), static_cast<max_size_t>(cache_hit_data));
     // }
     if (should_monitor_V1) {
       LSQ_queue[last_idx].D1 <= 0;
@@ -211,15 +211,14 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
     // other data
     if (bool(has_accepted_ins_last_cycle)) LSQ_queue[last_idx].state <= 2;
     bool can_execute = false;
-    if (static_cast<uint32_t>(mem_data_sign) > 0) {
+    if (static_cast<uint32_t>(mem_data_sign) > 0 && static_cast<max_size_t>(request_type_output) == 0) {
       if (static_cast<uint32_t>(LSQ_head) != static_cast<uint32_t>(LSQ_tail)) {
         uint32_t head = static_cast<uint32_t>(LSQ_head);
-        if (LSQ_queue[head].state.peek() == 2) {
-          if (((LSQ_queue[head].E1.peek() == 0) ||
-               (LSQ_queue[head].E1.peek() == 1 && LSQ_queue[head].D1.peek() == 1)) &&
-              ((LSQ_queue[head].E2.peek() == 0) ||
-               (LSQ_queue[head].E2.peek() == 1 && LSQ_queue[head].D2.peek() == 1))) {
+        if (LSQ_queue[head].state == 2) {
+          if (((LSQ_queue[head].E1 == 0) || (LSQ_queue[head].E1 == 1 && LSQ_queue[head].D1 == 1)) &&
+              ((LSQ_queue[head].E2 == 0) || (LSQ_queue[head].E2 == 1 && LSQ_queue[head].D2 == 1))) {
             // now we can execute the instruction
+            std::cerr << "Load Store queue is executing instruction" << std::endl;
             next_remain_space--;
             can_execute = true;
             LSQ_head <= (head + 1) % 32;

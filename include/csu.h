@@ -1,6 +1,7 @@
 #pragma once
 #include <sys/types.h>
 #include <cstdint>
+#include <iostream>
 #include "concept.h"
 #ifndef CSU_H
 #include <array>
@@ -139,7 +140,8 @@ struct CentralScheduleUnit
         decoded_imm = static_cast<uint32_t>(decoded_imm) | 0xFFFFF000;
       }
       uint8_t funct3 = ins >> 12 & 0x7;
-      uint8_t funct7 = ins >> 25 & 0x7F;
+      uint8_t funct7 = 0;
+      if (opcode == 0b0010011 && funct3 == 0b101) funct7 = ins >> 25 & 0x7F;
       full_ins_id = opcode | (funct3 << 7) | (((funct7 >> 5) & 1) << 10);
       decoded_shamt = ins >> 20 & 0x3F;
     } else if (opcode == 0b0100011) {
@@ -177,7 +179,7 @@ struct CentralScheduleUnit
       has_decoded_rs1 = 0;
       has_decoded_rs2 = 0;
       decoded_rd = ins >> 7 & 0x1F;
-      decoded_imm = ins >> 12;
+      decoded_imm = (ins >> 12) << 12;
       full_ins_id = opcode;
     } else if (opcode == 0b1101111) {
       // J-type
@@ -218,6 +220,7 @@ struct CentralScheduleUnit
       }
       has_instruction_issued_last_cycle <= 0;
       is_issuing <= 0;
+      is_committing <= 0;
       return;
     }
     if (bool(force_clear_announcer)) {
@@ -233,17 +236,21 @@ struct CentralScheduleUnit
       has_predicted_PC <= 1;
       has_instruction_issued_last_cycle <= 0;
       is_issuing <= 0;
+      is_committing <= 0;
       return;
     }
     // STEP1: try to commit and see if we need to rollback
     uint32_t ROB_next_remain_space = static_cast<max_size_t>(ROB_remain_space);
+    bool has_committed = false;
     {
-      uint32_t i = -1;
-      for (auto &record : ROB_records) {
-        ++i;
-        if (static_cast<max_size_t>(record.state) != 3) continue;
+      uint32_t i = static_cast<max_size_t>(ROB_head);
+      auto &record = ROB_records[i];
+      if (static_cast<max_size_t>(record.state) == 3) {
         ROB_head <= (static_cast<max_size_t>(ROB_head) + 1) % kROBSize;
+        std::cerr << "csu is committing instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+                  << static_cast<max_size_t>(record.instruction) << std::endl;
         is_committing <= 1;
+        has_committed = true;
         commit_has_resulting_register <= record.has_resulting_register;
         commit_reg_index <= record.resulting_register_idx;
         commit_reg_value <= record.resulting_register_value;
@@ -251,11 +258,15 @@ struct CentralScheduleUnit
         actual_PC <= static_cast<max_size_t>(record.resulting_PC);
         if (static_cast<max_size_t>(record.PC_mismatch_mark) == 1) {
           force_clear_announcer <= 1;
+          std::cerr << "[warning] csu is announcing rolling back due to PC mismatch" << std::endl;
         }
         ROB_next_remain_space++;
-        break;
+        if (record.instruction == 0x0ff00513) {
+          halt_signal <= 0b100000000;
+        }
       }
     }
+    if (!has_committed) is_committing <= 0;
     if (force_clear_announcer.peek()) {
       ROB_remain_space <= ROB_next_remain_space;
       return;
@@ -311,6 +322,9 @@ struct CentralScheduleUnit
                                       static_cast<max_size_t>(has_instruction_issued_last_cycle);
         if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
           // can issue
+          std::cerr << "csu is issuing mem instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+                    << instruction << " full_ins_id= " << std::hex << std::setw(8) << std::setfill('0')
+                    << std::uppercase << full_ins_id << std::endl;
           is_issuing <= 1;
           has_instruction_issued_last_cycle <= 1;
           uint32_t tail = static_cast<max_size_t>(ROB_tail);
@@ -347,6 +361,9 @@ struct CentralScheduleUnit
                                       static_cast<max_size_t>(has_instruction_issued_last_cycle);
         if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
           // can issue
+          std::cerr << "csu is issuing alu instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+                    << instruction << " full_ins_id= " << std::hex << std::setw(8) << std::setfill('0')
+                    << std::uppercase << full_ins_id << std::endl;
           is_issuing <= 1;
           has_instruction_issued_last_cycle <= 1;
           uint32_t tail = static_cast<max_size_t>(ROB_tail);
@@ -366,6 +383,7 @@ struct CentralScheduleUnit
                 break;
               case 0b1100111:
                 // jalr
+                std::cerr<<"encounter jalr"<<std::endl;
                 ROB_records[tail].resulting_PC_ready <= 0;
                 has_predicted_PC <= 0;
                 break;
@@ -383,7 +401,11 @@ struct CentralScheduleUnit
           ROB_records[tail].PC_mismatch_mark <= 0;
           this->issue_type <= 0;
           this->issue_ROB_index <= tail;
-          this->full_ins_id <= full_ins_id;
+          if (instruction == 0x0ff00513) {
+            this->full_ins_id <= 1;
+            has_predicted_PC <= 0;
+          } else
+            this->full_ins_id <= full_ins_id;
           this->full_ins <= instruction;
           this->issuing_PC <= static_cast<max_size_t>(predicted_PC);
           this->decoded_rd <= decoded_rd;
@@ -431,6 +453,11 @@ struct CentralScheduleUnit
     }
     // other data
     ROB_remain_space <= ROB_next_remain_space;
+    for (auto &record : ROB_records) {
+      if (static_cast<max_size_t>(record.state) == 1) {
+        record.state <= 2;
+      }
+    }
   }
 };
 }  // namespace ZYM

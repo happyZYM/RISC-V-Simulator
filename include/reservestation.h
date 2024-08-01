@@ -212,18 +212,18 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (bool(has_accepted_ins_last_cycle)) RS_records[last_idx].state <= 2;
     bool can_execute = false;
     for (int i = 0; i < 32; i++) {
-      if (RS_records[last_idx].state.peek() != 2) continue;
-      if (RS_records[last_idx].E1.peek() == 1 && RS_records[last_idx].D1.peek() == 0) continue;
-      if (RS_records[last_idx].E2.peek() == 1 && RS_records[last_idx].D2.peek() == 0) continue;
+      if (RS_records[i].state != 2) continue;
+      if (RS_records[i].E1 == 1 && RS_records[i].D1 == 0) continue;
+      if (RS_records[i].E2 == 1 && RS_records[i].D2 == 0) continue;
       can_execute = true;
-      request_full_id <= RS_records[last_idx].full_ins_id;
-      operand1 <= RS_records[last_idx].V1;
-      operand2 <= RS_records[last_idx].V2;
-      op_imm <= RS_records[last_idx].ins_imm;
-      op_shamt <= RS_records[last_idx].ins_shamt;
-      alu_ins_PC <= RS_records[last_idx].ins_self_PC;
-      request_ROB_index <= RS_records[last_idx].ins_ROB_index;
-      RS_records[last_idx].state <= 0;
+      request_full_id <= RS_records[i].full_ins_id;
+      operand1 <= RS_records[i].V1;
+      operand2 <= RS_records[i].V2;
+      op_imm <= RS_records[i].ins_imm;
+      op_shamt <= RS_records[i].ins_shamt;
+      alu_ins_PC <= RS_records[i].ins_self_PC;
+      request_ROB_index <= RS_records[i].ins_ROB_index;
+      RS_records[i].state <= 0;
       next_remain_space++;
       break;
     }

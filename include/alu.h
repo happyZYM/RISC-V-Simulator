@@ -23,6 +23,8 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
     // Constructor
   }
   void work() {
+    std::cerr << "ALU: cur request_full_id=" << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+              << static_cast<max_size_t>(request_full_id) << std::endl;
     switch (static_cast<max_size_t>(request_full_id)) {
       case 0: {
         alu_status <= 0b01;
@@ -39,6 +41,7 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
         alu_status <= 0b10;
         result_ROB_index <= request_ROB_index;
         result <= imm;
+        std::cerr << "lui: imm=" << std::hex << static_cast<max_size_t>(imm) << std::endl;
         completed_alu_resulting_PC <= static_cast<max_size_t>(request_PC) + 4;
         return;
       }

@@ -1,7 +1,7 @@
 #include "tools.h"
 #include <iostream>
 #include <unordered_map>
-
+unsigned int global_clock=0;
 // RISC-V
 enum class Opcode : dark::max_size_t {
 	ADD,

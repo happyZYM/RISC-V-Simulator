@@ -43,7 +43,8 @@ struct assert {
 			std::cerr << "Message: ";
 			((std::cerr << args), ...) << std::endl;
 		}
-		std::exit(EXIT_FAILURE);
+		// std::exit(EXIT_FAILURE);
+    throw std::runtime_error("Assertion failed");
 	}
 #else
 	explicit assert(_Tp &&, _Args &&...) {}

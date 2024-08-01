@@ -5,7 +5,7 @@
 #include <memory>
 #include <random>
 #include <vector>
-
+extern unsigned int global_clock;
 
 namespace dark {
 
@@ -64,12 +64,14 @@ public:
 		auto func = shuffle ? &CPU::run_once_shuffle : &CPU::run_once;
     reset_signal=true;
 		while (max_cycles == 0 || cycles < max_cycles) {
+      std::cerr<<"clock: "<<std::dec<<global_clock<<std::endl;
 			(this->*func)();
       reset_signal=false;
       uint32_t halt_signal_value = max_size_t(halt_signal);
       if(halt_signal_value &(1<<9)) {
         return halt_signal_value&0xff;
       }
+      global_clock++;
     }
     return 255;
 	}

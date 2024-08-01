@@ -218,7 +218,7 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
       int addr, tmp;
       std::vector<uint8_t> buf;
       fin >> addr;
-      DEBUG_CERR << "begin:" << std::hex << addr << std::endl;
+      // DEBUG_CERR << "begin:" << std::hex << addr << std::endl;
       while (fin >> tmp) {
         buf.push_back(tmp);
       }
@@ -227,8 +227,8 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
       }
       for (int i = 0; i < buf.size(); i++) {
         memory_data[addr + i] = buf[i];
-        DEBUG_CERR << std::hex << addr + i << ' ' << std::uppercase << std::setw(2) << std::setfill('0') << std::hex
-                   << (int)buf[i] << std::endl;
+        // DEBUG_CERR << std::hex << addr + i << ' ' << std::uppercase << std::setw(2) << std::setfill('0') << std::hex
+                  //  << (int)buf[i] << std::endl;
       }
       fin.clear();
     } while (!fin.eof());
