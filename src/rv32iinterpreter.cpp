@@ -192,7 +192,7 @@ class RV32IInterpreter {
     while (Fetch()) {
       // uint8_t opcode=IR&127;
       // std::cout<<"PC: "<<std::hex<<PC<<std::endl;
-      std::cout << "IR= " << std::hex << std::setw(8) << std::setfill('0') <<std::uppercase<< IR << std::endl;
+      std::cout << "csu is committing instruct " << std::hex << std::setw(8) << std::setfill('0') <<std::uppercase<< IR << std::endl;
       PrintRegisters();
       Decode(IR)(*this, IR);
       DEBUG_CERR << std::endl;
