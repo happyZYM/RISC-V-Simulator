@@ -1,4 +1,5 @@
 #pragma once
+#include "concept.h"
 #include "module.h"
 #include "wire.h"
 #include <algorithm>
@@ -64,11 +65,13 @@ public:
 		auto func = shuffle ? &CPU::run_once_shuffle : &CPU::run_once;
     reset_signal=true;
 		while (max_cycles == 0 || cycles < max_cycles) {
-      std::cerr<<"clock: "<<std::dec<<global_clock<<std::endl;
+      std::cerr<<"\nclock: "<<std::dec<<global_clock<<std::endl;
 			(this->*func)();
       reset_signal=false;
-      uint32_t halt_signal_value = max_size_t(halt_signal);
-      if(halt_signal_value &(1<<9)) {
+      halt_signal.sync();
+      uint32_t halt_signal_value = static_cast<max_size_t>(halt_signal);
+      std::cerr<<"simulator received halt_signal_value="<<std::dec<<halt_signal_value<<std::endl;
+      if(halt_signal_value &(1<<8)) {
         return halt_signal_value&0xff;
       }
       global_clock++;

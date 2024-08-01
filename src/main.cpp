@@ -35,6 +35,7 @@ int main(int argc, char **argv) {
   // alu.reset.assign([&]() { return cpu.GetResetSignal(); });
   rf.reset.assign([&]() { return cpu.GetResetSignal(); });
   rs.reset.assign([&]() { return cpu.GetResetSignal(); });
+  csu.a0.assign([&]() { return rf.ReturnExitCodeImmediately(); });
   // now connect the wires, see the comment and docs for help
   // csu <-> memory
   RWConnect(csu.force_clear_announcer, memory.force_clear_receiver);
@@ -169,6 +170,6 @@ int main(int argc, char **argv) {
   RWConnect(rf.rs2_deps, rs.rs2_deps);
   RWConnect(rf.rs2_value, rs.rs2_value);
   // now start running
-  std::cout << cpu.run(100, false) << std::endl;
+  std::cout << uint32_t(cpu.run(1000, false)) << std::endl;
   return 0;
 }

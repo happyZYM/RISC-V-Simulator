@@ -124,6 +124,16 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
       LSQ_queue[cur_queue_tail].E2 <= has_decoded_rs2;
       LSQ_queue[cur_queue_tail].D1 <= 1;  // temporarily
       LSQ_queue[cur_queue_tail].D2 <= 1;  // temporarily
+      std::cerr << "LoadStoreQueue is accepting instruction" << std::endl;
+      std::cerr << "\tfull_ins_id: " << std::hex << static_cast<max_size_t>(full_ins_id) << std::endl;
+      std::cerr << "\tins_ROB_index: " << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
+      std::cerr << "\tins_self_PC: " << std::hex << std::setw(8) << std::setfill('0')
+                << static_cast<max_size_t>(issuing_PC) << std::endl;
+      std::cerr << "\tins_imm: " << std::hex << static_cast<max_size_t>(decoded_imm) << std::endl;
+      std::cerr << "\thas_decoded_rs1: " << std::hex << std::setw(8) << std::setfill('0')
+                << static_cast<max_size_t>(has_decoded_rs1) << std::endl;
+      std::cerr << "\thas_decoded_rs2: " << std::hex << std::setw(8) << std::setfill('0')
+                << static_cast<max_size_t>(has_decoded_rs2) << std::endl;
       // LSQ_queue[cur_queue_tail].Q1 <= decoded_rs1;  // temporarily, no use
       // LSQ_queue[cur_queue_tail].Q2 <= decoded_rs2;  // temporarily, no use
     } else
@@ -134,10 +144,13 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
     if (bool(has_accepted_ins_last_cycle)) {
       // now dependency info can be read from the register file, in the mean time, CSU will provide the
       // potentially missing data
+      std::cerr << "LoadStoreQueue is process dependency information from register file and ROB" << std::endl;
       if (bool(LSQ_queue[last_idx].E1) && bool(rs1_nodep)) {
         LSQ_queue[last_idx].V1 <= rs1_value;
         LSQ_queue[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
+        std::cerr << "\t from register file: LSQ_queue[last_idx].V1=" << std::hex << std::setw(8) << std::setfill('0')
+                  << static_cast<max_size_t>(LSQ_queue[last_idx].V1) << std::endl;
       }
       if (bool(LSQ_queue[last_idx].E2) && bool(rs2_nodep)) {
         LSQ_queue[last_idx].V2 <= rs2_value;
@@ -148,12 +161,15 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
         LSQ_queue[last_idx].V1 <= rs1_in_ROB_value;
         LSQ_queue[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
+        std::cerr << "\t from ROB: LSQ_queue[last_idx].V1=" << std::hex << std::setw(8) << std::setfill('0')
+                  << static_cast<max_size_t>(LSQ_queue[last_idx].V1) << std::endl;
       }
       if (bool(LSQ_queue[last_idx].E2) && (!bool(rs2_nodep)) && bool(rs2_is_in_ROB)) {
         LSQ_queue[last_idx].V2 <= rs2_in_ROB_value;
         LSQ_queue[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
       }
+      std::cerr << "End of processing dependency information from register file and ROB" << std::endl;
     }
     bool should_monitor_V1 =
         bool(has_accepted_ins_last_cycle) && bool(LSQ_queue[last_idx].E1) && !last_cycle_V1_proccessed;
@@ -188,10 +204,12 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
         ptr = (ptr + 1) % 32;
       }
     };
+    std::cerr << "Load Store Queue is listening data from alu" << std::endl;
     if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
       process_listend_data(static_cast<max_size_t>(completed_aluins_ROB_index),
                            static_cast<max_size_t>(completed_aluins_result));
     }
+    std::cerr << "Load Store Queue is listening data from memory" << std::endl;
     if (static_cast<max_size_t>(mem_data_sign) == 0b10) {
       process_listend_data(static_cast<max_size_t>(completed_memins_ROB_index),
                            static_cast<max_size_t>(completed_memins_read_data));

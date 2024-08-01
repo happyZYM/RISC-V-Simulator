@@ -61,6 +61,7 @@ private:
 
 private:
 	void sync() { this->_M_holds = false; }
+  friend class CPU;
 
 	template<details::WireFunction<_Len> _Fn>
 	static auto _M_new_func(_Fn &&fn) {

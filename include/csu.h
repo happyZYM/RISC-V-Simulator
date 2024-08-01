@@ -12,6 +12,7 @@ namespace ZYM {
 const int kROBSize = 32;
 const int kTotalRegister = 32;
 struct CentralScheduleUnit_Input {
+  dark::Wire<8> a0;
   dark::Wire<1> reset;
   // data from load store queue
   dark::Wire<6> load_store_queue_emptyspace_receiver;
@@ -262,7 +263,8 @@ struct CentralScheduleUnit
         }
         ROB_next_remain_space++;
         if (record.instruction == 0x0ff00513) {
-          halt_signal <= 0b100000000;
+          halt_signal <= (0b100000000 | static_cast<max_size_t>(a0));
+          std::cerr << "halting with code " << std::dec << int(halt_signal.peek()) << std::endl;
         }
       }
     }
@@ -281,23 +283,28 @@ struct CentralScheduleUnit
           record.resulting_register_value <= res_data;
           if (!bool(record.resulting_PC_ready)) {
             record.resulting_PC <= res_PC;
-            if (res_PC != static_cast<max_size_t>(record.resulting_PC)) {
+            if (res_PC != static_cast<max_size_t>(record.resulting_PC) &&
+                (static_cast<max_size_t>(record.instruction) & 0x7F) != 0b1100111) {
               record.PC_mismatch_mark <= 1;
             }
             record.resulting_PC_ready <= 1;
             if ((static_cast<max_size_t>(record.instruction) & 0x7F) == 0b1100111) {
               has_predicted_PC <= 1;
-              predicted_PC <= record.resulting_PC;
+              predicted_PC <= res_PC;
+              std::cerr << "The jalr instruction is committed, now predicted_PC is " << std::hex << std::setw(8)
+                        << std::setfill('0') << std::uppercase << predicted_PC.peek() << std::endl;
             }
           }
           record.state <= 3;
         }
       }
     };
+    std::cerr << "csu is listening data from memory" << std::endl;
     if (static_cast<max_size_t>(mem_status_receiver) == 0b10) {
       process_data(static_cast<max_size_t>(completed_memins_ROB_index),
                    static_cast<max_size_t>(completed_memins_read_data), 0);
     }
+    std::cerr << "csu is listening data from alu" << std::endl;
     if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
       process_data(static_cast<max_size_t>(completed_aluins_ROB_index),
                    static_cast<max_size_t>(completed_aluins_result),
@@ -383,7 +390,7 @@ struct CentralScheduleUnit
                 break;
               case 0b1100111:
                 // jalr
-                std::cerr<<"encounter jalr"<<std::endl;
+                std::cerr << "encounter jalr" << std::endl;
                 ROB_records[tail].resulting_PC_ready <= 0;
                 has_predicted_PC <= 0;
                 break;
@@ -427,22 +434,38 @@ struct CentralScheduleUnit
     }
     // provide the potentially missing data for instruction issued last cycle
     if (bool(has_instruction_issued_last_cycle)) {
+      std::cerr << "CSU is processing potentially missing data for instruction issued last cycle" << std::endl;
       uint8_t rs1 = static_cast<max_size_t>(this->decoded_rs1);
       uint8_t found_rs1 = 0;
       uint32_t rs1_v;
       uint8_t rs2 = static_cast<max_size_t>(this->decoded_rs2);
       uint8_t found_rs2 = 0;
       uint32_t rs2_v;
-      for (uint32_t ptr = static_cast<max_size_t>(ROB_head); ptr != static_cast<max_size_t>(ROB_tail);
+      for (uint32_t ptr = static_cast<max_size_t>(ROB_head);
+           ptr != static_cast<max_size_t>(ROB_tail) && (ptr + 1) % kROBSize != static_cast<max_size_t>(ROB_tail);
            ptr = (ptr + 1) % kROBSize) {
         if (ROB_records[ptr].state.peek() == 3) {
-          if (static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs1) {
+          if (bool(ROB_records[ptr].has_resulting_register) &&
+              static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs1) {
             rs1_v = ROB_records[ptr].resulting_register_value.peek();
             found_rs1 = 1;
+            std::cerr << "matching rs1=" << std::dec << int(rs1) << " ptr=" << std::dec << ptr << " rs1_v=" << std::hex
+                      << std::setw(8) << std::setfill('0') << rs1_v << std::endl;
           }
-          if (static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs2) {
+          if (bool(ROB_records[ptr].has_resulting_register) &&
+              static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs2) {
             rs2_v = ROB_records[ptr].resulting_register_value.peek();
             found_rs2 = 1;
+          }
+        } else {
+          if (bool(ROB_records[ptr].has_resulting_register) &&
+              static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs1) {
+            found_rs1 = 0;
+            std::cerr << "dematching rs1=" << std::dec << int(rs1) << " ptr=" << std::dec << ptr << std::endl;
+          }
+          if (bool(ROB_records[ptr].has_resulting_register) &&
+              static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs2) {
+            found_rs2 = 0;
           }
         }
       }

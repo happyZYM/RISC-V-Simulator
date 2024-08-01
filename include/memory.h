@@ -116,6 +116,8 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
               }
             }
             completed_memins_read_data <= tmp;
+            std::cerr << "memory read: " << std::hex << std::setfill('0') << std::setw(2) << tmp << " from " << std::hex
+                      << static_cast<max_size_t>(cur_opt_addr) << std::endl;
             break;
           }
           case 2: {
@@ -127,10 +129,15 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
               }
             }
             completed_memins_read_data <= tmp;
+            std::cerr << "memory read: " << std::hex << std::setfill('0') << std::setw(4) << tmp << " from " << std::hex
+                      << static_cast<max_size_t>(cur_opt_addr) << std::endl;
             break;
           }
           case 4:
             completed_memins_read_data <= *reinterpret_cast<uint32_t *>(&memory_data[max_size_t(cur_opt_addr)]);
+            std::cerr << "memory read: " << std::hex << std::setfill('0') << std::setw(8)
+                      << *reinterpret_cast<uint32_t *>(&memory_data[max_size_t(cur_opt_addr)]) << " from " << std::hex
+                      << static_cast<max_size_t>(cur_opt_addr) << std::endl;
             break;
           default:
             throw std::runtime_error("Invalid bytes");
@@ -181,11 +188,12 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
             playback[cur_opt_ROB_index].changes[3].addr <= cur_opt_addr + 3;
             playback[cur_opt_ROB_index].changes[3].before <= memory_data[max_size_t(cur_opt_addr) + 3];
             *reinterpret_cast<uint32_t *>(&memory_data[max_size_t(cur_opt_addr)]) = max_size_t(cur_opt_data);
+            std::cerr << "Memory executing sw" << std::endl;
             break;
           default:
             throw std::runtime_error("Invalid bytes");
         }
-        data_sign <= 1;  // free
+        data_sign <= 2;  // free
         return;
       }
     }
@@ -201,6 +209,7 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
     cur_opt_data <= data_input;
     cur_opt_type <= rw_type;
     cur_opt_bytes <= opt_bytes;
+    std::cerr << "Memory is accepting a request" << std::endl;
   }
   max_size_t FetchInstruction(max_size_t addr) {  // assume we have a super nb instruction fetch method that can fetch
                                                   // an instruction immediately
@@ -228,7 +237,7 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
       for (int i = 0; i < buf.size(); i++) {
         memory_data[addr + i] = buf[i];
         // DEBUG_CERR << std::hex << addr + i << ' ' << std::uppercase << std::setw(2) << std::setfill('0') << std::hex
-                  //  << (int)buf[i] << std::endl;
+        //  << (int)buf[i] << std::endl;
       }
       fin.clear();
     } while (!fin.eof());

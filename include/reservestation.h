@@ -135,25 +135,30 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (bool(has_accepted_ins_last_cycle)) {
       // TODO: now dependency info can be read from the register file, in the mean time, CSU will provide the
       // potentially missing data
+      std::cerr << "Reserve Station is listening dependency info from Register File and CSU" << std::endl;
       if (bool(RS_records[last_idx].E1) && bool(rs1_nodep)) {
         RS_records[last_idx].V1 <= rs1_value;
         RS_records[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
+        std::cerr << "\t Register File: RS1 is not dependent" << std::endl;
       }
       if (bool(RS_records[last_idx].E2) && bool(rs2_nodep)) {
         RS_records[last_idx].V2 <= rs2_value;
         RS_records[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
+        std::cerr << "\t Register File: RS2 is not dependent" << std::endl;
       }
       if (bool(RS_records[last_idx].E1) && (!bool(rs1_nodep)) && bool(rs1_is_in_ROB)) {
         RS_records[last_idx].V1 <= rs1_in_ROB_value;
         RS_records[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
+        std::cerr << "\t ROB: RS1 is in ROB" << std::endl;
       }
       if (bool(RS_records[last_idx].E2) && (!bool(rs2_nodep)) && bool(rs2_is_in_ROB)) {
         RS_records[last_idx].V2 <= rs2_in_ROB_value;
         RS_records[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
+        std::cerr << "\t ROB: RS2 is in ROB" << std::endl;
       }
     }
     // TODO: now alu, memory may provide data to satisfy the dependency
@@ -203,10 +208,12 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (should_monitor_V1) {
       RS_records[last_idx].Q1 <= rs1_deps;
       RS_records[last_idx].D1 <= 0;
+      std::cerr << "\t RS1 depend on ins of ROB index " << std::dec << RS_records[last_idx].Q1.peek() << std::endl;
     }
     if (should_monitor_V2) {
       RS_records[last_idx].Q2 <= rs2_deps;
       RS_records[last_idx].D2 <= 0;
+      std::cerr << "\t RS2 depend on ins of ROB index " << std::dec << RS_records[last_idx].Q2.peek() << std::endl;
     }
     // TODO: now, we can check if we can execute the instruction, memory and L0 cache will listen to this
     if (bool(has_accepted_ins_last_cycle)) RS_records[last_idx].state <= 2;
