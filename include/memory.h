@@ -188,7 +188,12 @@ struct Memory : dark::Module<Memory_Input, Memory_Output, Memory_Private> {
             playback[cur_opt_ROB_index].changes[3].addr <= cur_opt_addr + 3;
             playback[cur_opt_ROB_index].changes[3].before <= memory_data[max_size_t(cur_opt_addr) + 3];
             *reinterpret_cast<uint32_t *>(&memory_data[max_size_t(cur_opt_addr)]) = max_size_t(cur_opt_data);
-            std::cerr << "Memory executing sw" << std::endl;
+            std::cerr << "Memory executing sw, ROB_index=" << std::dec
+                      << static_cast<max_size_t>(completed_memins_ROB_index) << std::endl;
+            std::cerr << "\taddr=" << std::hex << std::setfill('0') << std::setw(8)
+                      << static_cast<max_size_t>(cur_opt_addr) << std::endl;
+            std::cerr << "\tdata=" << std::hex << std::setfill('0') << std::setw(8)
+                      << static_cast<max_size_t>(cur_opt_data) << std::endl;
             break;
           default:
             throw std::runtime_error("Invalid bytes");

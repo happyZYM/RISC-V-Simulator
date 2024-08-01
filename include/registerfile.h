@@ -44,7 +44,11 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
   RegisterFile() {
     // Constructor
   }
-  uint8_t ReturnExitCodeImmediately() { return registers[10].peek() & 0xff; }
+  uint8_t ReturnExitCodeImmediately() {
+    std::cerr << "Register File: CSU is collecting exit code" << std::endl;
+    std::cerr << "Sent " << std::dec << (registers[10].peek() & 0xff) << std::endl;
+    return registers[10].peek() & 0xff;
+  }
   void work() {
     if (bool(reset)) {
       for (auto &reg : registers) {
@@ -58,11 +62,16 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
       }
       return;
     }
+    bool dependency_cleared = false;
     if (bool(is_committing)) {
+      std::cerr << "register file found CSU is committing commit_ins_ROB_index=" << std::dec
+                << static_cast<max_size_t>(commit_ins_ROB_index) << std::endl;
       if (bool(has_resulting_register)) {
         registers[static_cast<max_size_t>(commit_reg_index)] <= commit_reg_value;
         if (register_deps[static_cast<max_size_t>(commit_reg_index)] == commit_ins_ROB_index) {
+          std::cerr << "The dependency is cleared" << std::endl;
           register_nodep[static_cast<max_size_t>(commit_reg_index)] <= 1;
+          dependency_cleared = true;
         }
       }
     }
@@ -73,7 +82,7 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
           rs1_deps <= 0;
           rs1_value <= 0;
           rs1_nodep <= 1;
-        } else if ((!bool(is_committing)) || (commit_reg_index != decoded_rs1)) {
+        } else if ((!bool(is_committing)) || (commit_reg_index != decoded_rs1) || (!dependency_cleared)) {
           rs1_deps <= register_deps[static_cast<max_size_t>(decoded_rs1)].peek();
           rs1_value <= registers[static_cast<max_size_t>(decoded_rs1)].peek();
           rs1_nodep <= register_nodep[static_cast<max_size_t>(decoded_rs1)].peek();
@@ -91,7 +100,7 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
           rs2_deps <= 0;
           rs2_value <= 0;
           rs2_nodep <= 1;
-        } else if ((!bool(is_committing)) || (commit_reg_index != decoded_rs2)) {
+        } else if ((!bool(is_committing)) || (commit_reg_index != decoded_rs2) || (!dependency_cleared)) {
           rs2_deps <= register_deps[static_cast<max_size_t>(decoded_rs2)].peek();
           rs2_value <= registers[static_cast<max_size_t>(decoded_rs2)].peek();
           rs2_nodep <= register_nodep[static_cast<max_size_t>(decoded_rs2)].peek();
@@ -105,6 +114,9 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
         std::cerr << "rs2_nodep=" << rs2_nodep.peek() << std::endl;
       }
       if (bool(has_decoded_rd)) {
+        std::cerr << "RF: setting rd dependency" << std::endl;
+        std::cerr << "\tdecoded_rd=" << std::dec << static_cast<max_size_t>(decoded_rd) << std::endl;
+        std::cerr << "\tissue_ROB_index=" << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
         register_deps[static_cast<max_size_t>(decoded_rd)] <= static_cast<max_size_t>(issue_ROB_index);
         register_nodep[static_cast<max_size_t>(decoded_rd)] <= 0;
       }
