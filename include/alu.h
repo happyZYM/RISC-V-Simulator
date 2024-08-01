@@ -23,7 +23,7 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
     // Constructor
   }
   void work() {
-    std::cerr << "ALU: cur request_full_id=" << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+    DEBUG_CERR << "ALU: cur request_full_id=" << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
               << static_cast<max_size_t>(request_full_id) << " request_ROB_index=" << std::dec
               << static_cast<max_size_t>(request_ROB_index) << std::endl;
     switch (static_cast<max_size_t>(request_full_id)) {
@@ -42,7 +42,7 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
         alu_status <= 0b10;
         result_ROB_index <= request_ROB_index;
         result <= imm;
-        std::cerr << "lui: imm=" << std::hex << static_cast<max_size_t>(imm) << std::endl;
+        DEBUG_CERR << "lui: imm=" << std::hex << static_cast<max_size_t>(imm) << std::endl;
         completed_alu_resulting_PC <= static_cast<max_size_t>(request_PC) + 4;
         return;
       }
@@ -67,8 +67,8 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
         alu_status <= 0b10;
         result_ROB_index <= request_ROB_index;
         result <= static_cast<max_size_t>(request_PC) + 4;
-        std::cerr << "alu: jalr: imm=" << std::hex << static_cast<max_size_t>(imm) << std::endl;
-        std::cerr << "alu: jalr: operand1=" << std::hex << static_cast<max_size_t>(operand1) << std::endl;
+        DEBUG_CERR << "alu: jalr: imm=" << std::hex << static_cast<max_size_t>(imm) << std::endl;
+        DEBUG_CERR << "alu: jalr: operand1=" << std::hex << static_cast<max_size_t>(operand1) << std::endl;
         completed_alu_resulting_PC <= ((static_cast<max_size_t>(operand1) + static_cast<max_size_t>(imm)) & 0xfffffffe);
         return;
       }
@@ -145,7 +145,7 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
         alu_status <= 0b10;
         result_ROB_index <= request_ROB_index;
         result <= static_cast<max_size_t>(operand1) + imm;
-        std::cerr << "\taddi: operand1=" << std::hex << static_cast<max_size_t>(operand1) << " imm=" << std::hex
+        DEBUG_CERR << "\taddi: operand1=" << std::hex << static_cast<max_size_t>(operand1) << " imm=" << std::hex
                   << static_cast<max_size_t>(imm) << " result=" << std::hex << result.peek() << std::endl;
         completed_alu_resulting_PC <= static_cast<max_size_t>(request_PC) + 4;
         return;

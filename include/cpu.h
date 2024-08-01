@@ -65,12 +65,12 @@ public:
 		auto func = shuffle ? &CPU::run_once_shuffle : &CPU::run_once;
     reset_signal=true;
 		while (max_cycles == 0 || cycles < max_cycles) {
-      std::cerr<<"\nclock: "<<std::dec<<global_clock<<std::endl;
+      DEBUG_CERR<<"\nclock: "<<std::dec<<global_clock<<std::endl;
 			(this->*func)();
       reset_signal=false;
       halt_signal.sync();
       uint32_t halt_signal_value = static_cast<max_size_t>(halt_signal);
-      std::cerr<<"simulator received halt_signal_value="<<std::dec<<halt_signal_value<<std::endl;
+      DEBUG_CERR<<"simulator received halt_signal_value="<<std::dec<<halt_signal_value<<std::endl;
       if(halt_signal_value &(1<<8)) {
         return halt_signal_value&0xff;
       }

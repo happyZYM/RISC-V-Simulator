@@ -170,6 +170,6 @@ int main(int argc, char **argv) {
   RWConnect(rf.rs2_deps, rs.rs2_deps);
   RWConnect(rf.rs2_value, rs.rs2_value);
   // now start running
-  std::cout << uint32_t(cpu.run(1000, false)) << std::endl;
+  std::cout << uint32_t(cpu.run(0, false)) << std::endl;
   return 0;
 }

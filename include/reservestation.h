@@ -130,9 +130,9 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
       RS_records[deposit_index].E2 <= has_decoded_rs2;
       RS_records[deposit_index].D1 <= 1;
       RS_records[deposit_index].D2 <= 1;
-      std::cerr << "Reserve Station has accepted an instruction from CSU" << std::endl;
-      std::cerr << "\tdeposit_index=" << std::dec << deposit_index << std::endl;
-      std::cerr << "\tROB_index=" << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
+      DEBUG_CERR << "Reserve Station has accepted an instruction from CSU" << std::endl;
+      DEBUG_CERR << "\tdeposit_index=" << std::dec << deposit_index << std::endl;
+      DEBUG_CERR << "\tROB_index=" << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
     } else
       has_accepted_ins_last_cycle <= 0;
     uint32_t last_idx = static_cast<max_size_t>(last_cycle_ins_RS_index);
@@ -141,30 +141,30 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (bool(has_accepted_ins_last_cycle)) {
       // TODO: now dependency info can be read from the register file, in the mean time, CSU will provide the
       // potentially missing data
-      std::cerr << "Reserve Station is listening dependency info from Register File and CSU" << std::endl;
+      DEBUG_CERR << "Reserve Station is listening dependency info from Register File and CSU" << std::endl;
       if (bool(RS_records[last_idx].E1) && bool(rs1_nodep)) {
         RS_records[last_idx].V1 <= rs1_value;
         RS_records[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
-        std::cerr << "\t Register File: RS1 is not dependent" << std::endl;
+        DEBUG_CERR << "\t Register File: RS1 is not dependent" << std::endl;
       }
       if (bool(RS_records[last_idx].E2) && bool(rs2_nodep)) {
         RS_records[last_idx].V2 <= rs2_value;
         RS_records[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
-        std::cerr << "\t Register File: RS2 is not dependent" << std::endl;
+        DEBUG_CERR << "\t Register File: RS2 is not dependent" << std::endl;
       }
       if (bool(RS_records[last_idx].E1) && (!bool(rs1_nodep)) && bool(rs1_is_in_ROB)) {
         RS_records[last_idx].V1 <= rs1_in_ROB_value;
         RS_records[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
-        std::cerr << "\t ROB: RS1 is in ROB" << std::endl;
+        DEBUG_CERR << "\t ROB: RS1 is in ROB" << std::endl;
       }
       if (bool(RS_records[last_idx].E2) && (!bool(rs2_nodep)) && bool(rs2_is_in_ROB)) {
         RS_records[last_idx].V2 <= rs2_in_ROB_value;
         RS_records[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
-        std::cerr << "\t ROB: RS2 is in ROB" << std::endl;
+        DEBUG_CERR << "\t ROB: RS2 is in ROB" << std::endl;
       }
     }
     // TODO: now alu, memory may provide data to satisfy the dependency
@@ -173,7 +173,7 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     bool should_monitor_V2 =
         bool(has_accepted_ins_last_cycle) && bool(RS_records[last_idx].E2) && (!last_cycle_V2_proccessed);
     auto process_listend_data = [&](uint32_t res_ROB_index, uint32_t res_value) -> void {
-      std::cerr << "\tres_ROB_index=" << std::dec << res_ROB_index << std::endl;
+      DEBUG_CERR << "\tres_ROB_index=" << std::dec << res_ROB_index << std::endl;
       for (uint32_t ptr = 0; ptr < 32; ptr++) {
         if (RS_records[ptr].state == 0) continue;
         if ((!bool(has_accepted_ins_last_cycle)) || ptr != last_idx) {
@@ -200,12 +200,12 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
         }
       }
     };
-    std::cerr << "Reservestation is listening data from ALU" << std::endl;
+    DEBUG_CERR << "Reservestation is listening data from ALU" << std::endl;
     if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
       process_listend_data(static_cast<max_size_t>(completed_aluins_ROB_index),
                            static_cast<max_size_t>(completed_aluins_result));
     }
-    std::cerr << "Reservestation is listening data from Memory" << std::endl;
+    DEBUG_CERR << "Reservestation is listening data from Memory" << std::endl;
     if (static_cast<max_size_t>(mem_status_receiver) == 0b10) {
       process_listend_data(static_cast<max_size_t>(completed_memins_ROB_index),
                            static_cast<max_size_t>(completed_memins_read_data));
@@ -216,12 +216,12 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (should_monitor_V1) {
       RS_records[last_idx].Q1 <= rs1_deps;
       RS_records[last_idx].D1 <= 0;
-      std::cerr << "\t RS1 depend on ins of ROB index " << std::dec << RS_records[last_idx].Q1.peek() << std::endl;
+      DEBUG_CERR << "\t RS1 depend on ins of ROB index " << std::dec << RS_records[last_idx].Q1.peek() << std::endl;
     }
     if (should_monitor_V2) {
       RS_records[last_idx].Q2 <= rs2_deps;
       RS_records[last_idx].D2 <= 0;
-      std::cerr << "\t RS2 depend on ins of ROB index " << std::dec << RS_records[last_idx].Q2.peek() << std::endl;
+      DEBUG_CERR << "\t RS2 depend on ins of ROB index " << std::dec << RS_records[last_idx].Q2.peek() << std::endl;
     }
     // TODO: now, we can check if we can execute the instruction, memory and L0 cache will listen to this
     if (bool(has_accepted_ins_last_cycle)) RS_records[last_idx].state <= 2;
@@ -245,11 +245,11 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (!can_execute) request_full_id <= 0;
     RS_remaining_space <= next_remain_space;
     RS_remain_space_output <= next_remain_space;
-    std::cerr << "Reservestation: next_remain_space=" << std::dec << next_remain_space << std::endl;
+    DEBUG_CERR << "Reservestation: next_remain_space=" << std::dec << next_remain_space << std::endl;
     int tot = 0;
     for (int i = 0; i < 32; i++)
       if (static_cast<max_size_t>(RS_records[i].state) == 0) tot++;
-    std::cerr << "\tcurrently there are " << std::dec << tot
+    DEBUG_CERR << "\tcurrently there are " << std::dec << tot
               << " remain spaces based on state but RS_remaining_space says " << std::dec
               << static_cast<max_size_t>(RS_remaining_space) << std::endl;
     if (tot != static_cast<max_size_t>(RS_remaining_space)) {

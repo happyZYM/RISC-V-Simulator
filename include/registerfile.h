@@ -45,8 +45,8 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
     // Constructor
   }
   uint8_t ReturnExitCodeImmediately() {
-    std::cerr << "Register File: CSU is collecting exit code" << std::endl;
-    std::cerr << "Sent " << std::dec << (registers[10].peek() & 0xff) << std::endl;
+    DEBUG_CERR << "Register File: CSU is collecting exit code" << std::endl;
+    DEBUG_CERR << "Sent " << std::dec << (registers[10].peek() & 0xff) << std::endl;
     return registers[10].peek() & 0xff;
   }
   void work() {
@@ -64,12 +64,12 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
     }
     bool dependency_cleared = false;
     if (bool(is_committing)) {
-      std::cerr << "register file found CSU is committing commit_ins_ROB_index=" << std::dec
+      DEBUG_CERR << "register file found CSU is committing commit_ins_ROB_index=" << std::dec
                 << static_cast<max_size_t>(commit_ins_ROB_index) << std::endl;
       if (bool(has_resulting_register)) {
         registers[static_cast<max_size_t>(commit_reg_index)] <= commit_reg_value;
         if (register_deps[static_cast<max_size_t>(commit_reg_index)] == commit_ins_ROB_index) {
-          std::cerr << "The dependency is cleared" << std::endl;
+          DEBUG_CERR << "The dependency is cleared" << std::endl;
           if (!(bool(is_issuing) && bool(has_decoded_rd) &&
                 (static_cast<max_size_t>(decoded_rd) == static_cast<max_size_t>(commit_reg_index))))
             register_nodep[static_cast<max_size_t>(commit_reg_index)] <= 1;
@@ -87,7 +87,7 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
       return;
     }
     if (bool(is_issuing)) {
-      std::cerr << "Register File Found CSU is issuing" << std::endl;
+      DEBUG_CERR << "Register File Found CSU is issuing" << std::endl;
       if (bool(has_decoded_rs1)) {
         if (static_cast<max_size_t>(decoded_rs1) == 0) {
           rs1_deps <= 0;
@@ -102,9 +102,9 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
           rs1_value <= commit_reg_value;
           rs1_nodep <= 1;
         }
-        std::cerr << std::dec << "rs1_deps=" << rs1_deps.peek() << std::endl;
-        std::cerr << std::hex << std::setw(8) << std::setfill('0') << "rs1_value=" << rs1_value.peek() << std::endl;
-        std::cerr << "rs1_nodep=" << rs1_nodep.peek() << std::endl;
+        DEBUG_CERR << std::dec << "rs1_deps=" << rs1_deps.peek() << std::endl;
+        DEBUG_CERR << std::hex << std::setw(8) << std::setfill('0') << "rs1_value=" << rs1_value.peek() << std::endl;
+        DEBUG_CERR << "rs1_nodep=" << rs1_nodep.peek() << std::endl;
       }
       if (bool(has_decoded_rs2)) {
         if (static_cast<max_size_t>(decoded_rs2) == 0) {
@@ -120,14 +120,14 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
           rs2_value <= commit_reg_value;
           rs2_nodep <= 1;
         }
-        std::cerr << std::dec << "rs2_deps=" << rs2_deps.peek() << std::endl;
-        std::cerr << std::hex << std::setw(8) << std::setfill('0') << "rs2_value=" << rs2_value.peek() << std::endl;
-        std::cerr << "rs2_nodep=" << rs2_nodep.peek() << std::endl;
+        DEBUG_CERR << std::dec << "rs2_deps=" << rs2_deps.peek() << std::endl;
+        DEBUG_CERR << std::hex << std::setw(8) << std::setfill('0') << "rs2_value=" << rs2_value.peek() << std::endl;
+        DEBUG_CERR << "rs2_nodep=" << rs2_nodep.peek() << std::endl;
       }
       if (bool(has_decoded_rd)) {
-        std::cerr << "RF: setting rd dependency" << std::endl;
-        std::cerr << "\tdecoded_rd=" << std::dec << static_cast<max_size_t>(decoded_rd) << std::endl;
-        std::cerr << "\tissue_ROB_index=" << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
+        DEBUG_CERR << "RF: setting rd dependency" << std::endl;
+        DEBUG_CERR << "\tdecoded_rd=" << std::dec << static_cast<max_size_t>(decoded_rd) << std::endl;
+        DEBUG_CERR << "\tissue_ROB_index=" << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
         register_deps[static_cast<max_size_t>(decoded_rd)] <= static_cast<max_size_t>(issue_ROB_index);
         register_nodep[static_cast<max_size_t>(decoded_rd)] <= 0;
       }

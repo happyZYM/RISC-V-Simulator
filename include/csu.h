@@ -248,28 +248,28 @@ struct CentralScheduleUnit
       auto &record = ROB_records[i];
       if (static_cast<max_size_t>(record.state) == 3) {
         ROB_head <= (static_cast<max_size_t>(ROB_head) + 1) % kROBSize;
-        std::cerr << "csu is committing instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+        DEBUG_CERR << "csu is committing instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
                   << static_cast<max_size_t>(record.instruction) << std::endl;
         is_committing <= 1;
         has_committed = true;
         commit_has_resulting_register <= record.has_resulting_register;
         commit_reg_index <= record.resulting_register_idx;
         commit_reg_value <= record.resulting_register_value;
-        std::cerr << "commit_reg_index=" << std::dec << commit_reg_index.peek() << " commit_reg_value=" << std::hex
+        DEBUG_CERR << "commit_reg_index=" << std::dec << commit_reg_index.peek() << " commit_reg_value=" << std::hex
                   << std::setw(8) << std::setfill('0') << std::uppercase << commit_reg_value.peek() << std::endl;
         commit_ins_ROB_index <= i;
         actual_PC <= static_cast<max_size_t>(record.resulting_PC);
         if (static_cast<max_size_t>(record.PC_mismatch_mark) == 1) {
           force_clear_announcer <= 1;
-          std::cerr << "[warning] csu is announcing rolling back due to PC mismatch" << std::endl;
+          DEBUG_CERR << "[warning] csu is announcing rolling back due to PC mismatch" << std::endl;
         }
         ROB_next_remain_space++;
         if (record.instruction == 0x0ff00513) {
           halt_signal <= (0b100000000 | static_cast<max_size_t>(a0));
-          std::cerr << "halting with code " << std::dec << int(halt_signal.peek()) << std::endl;
+          DEBUG_CERR << "halting with code " << std::dec << int(halt_signal.peek()) << std::endl;
         }
         if (record.instruction == 0x1B07A503) {
-          std::cerr << "judgeResult loaded from memory is " << std::dec
+          DEBUG_CERR << "judgeResult loaded from memory is " << std::dec
                     << static_cast<max_size_t>(record.resulting_register_value) << std::endl;
         }
       }
@@ -297,7 +297,7 @@ struct CentralScheduleUnit
             if ((static_cast<max_size_t>(record.instruction) & 0x7F) == 0b1100111) {
               has_predicted_PC <= 1;
               predicted_PC <= res_PC;
-              std::cerr << "The jalr instruction is committed, now predicted_PC is " << std::hex << std::setw(8)
+              DEBUG_CERR << "The jalr instruction is committed, now predicted_PC is " << std::hex << std::setw(8)
                         << std::setfill('0') << std::uppercase << predicted_PC.peek() << std::endl;
             }
           }
@@ -305,12 +305,12 @@ struct CentralScheduleUnit
         }
       }
     };
-    std::cerr << "csu is listening data from memory" << std::endl;
+    DEBUG_CERR << "csu is listening data from memory" << std::endl;
     if (static_cast<max_size_t>(mem_status_receiver) == 0b10) {
       process_data(static_cast<max_size_t>(completed_memins_ROB_index),
                    static_cast<max_size_t>(completed_memins_read_data), 0);
     }
-    std::cerr << "csu is listening data from alu" << std::endl;
+    DEBUG_CERR << "csu is listening data from alu" << std::endl;
     if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
       process_data(static_cast<max_size_t>(completed_aluins_ROB_index),
                    static_cast<max_size_t>(completed_aluins_result),
@@ -335,7 +335,7 @@ struct CentralScheduleUnit
                                       static_cast<max_size_t>(has_instruction_issued_last_cycle);
         if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
           // can issue
-          std::cerr << "csu is issuing mem instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+          DEBUG_CERR << "csu is issuing mem instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
                     << instruction << " full_ins_id= " << std::hex << std::setw(8) << std::setfill('0')
                     << std::uppercase << full_ins_id << " with ROB_index=" << std::dec
                     << static_cast<max_size_t>(ROB_tail) << std::endl;
@@ -375,7 +375,7 @@ struct CentralScheduleUnit
                                       static_cast<max_size_t>(has_instruction_issued_last_cycle);
         if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
           // can issue
-          std::cerr << "csu is issuing alu instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
+          DEBUG_CERR << "csu is issuing alu instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
                     << instruction << " full_ins_id= " << std::hex << std::setw(8) << std::setfill('0')
                     << std::uppercase << full_ins_id << " with ROB_index=" << std::dec
                     << static_cast<max_size_t>(ROB_tail) << std::endl;
@@ -398,7 +398,7 @@ struct CentralScheduleUnit
                 break;
               case 0b1100111:
                 // jalr
-                std::cerr << "encounter jalr" << std::endl;
+                DEBUG_CERR << "encounter jalr" << std::endl;
                 ROB_records[tail].resulting_PC_ready <= 0;
                 has_predicted_PC <= 0;
                 break;
@@ -442,7 +442,7 @@ struct CentralScheduleUnit
     }
     // provide the potentially missing data for instruction issued last cycle
     if (bool(has_instruction_issued_last_cycle)) {
-      std::cerr << "CSU is processing potentially missing data for instruction issued last cycle" << std::endl;
+      DEBUG_CERR << "CSU is processing potentially missing data for instruction issued last cycle" << std::endl;
       uint8_t rs1 = static_cast<max_size_t>(this->decoded_rs1);
       uint8_t found_rs1 = 0;
       uint32_t rs1_v;
@@ -457,7 +457,7 @@ struct CentralScheduleUnit
               static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs1) {
             rs1_v = ROB_records[ptr].resulting_register_value.peek();
             found_rs1 = 1;
-            std::cerr << "matching rs1=" << std::dec << int(rs1) << " ptr=" << std::dec << ptr << " rs1_v=" << std::hex
+            DEBUG_CERR << "matching rs1=" << std::dec << int(rs1) << " ptr=" << std::dec << ptr << " rs1_v=" << std::hex
                       << std::setw(8) << std::setfill('0') << rs1_v << std::endl;
           }
           if (bool(ROB_records[ptr].has_resulting_register) &&
@@ -469,7 +469,7 @@ struct CentralScheduleUnit
           if (bool(ROB_records[ptr].has_resulting_register) &&
               static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs1) {
             found_rs1 = 0;
-            std::cerr << "dematching rs1=" << std::dec << int(rs1) << " ptr=" << std::dec << ptr << std::endl;
+            DEBUG_CERR << "dematching rs1=" << std::dec << int(rs1) << " ptr=" << std::dec << ptr << std::endl;
           }
           if (bool(ROB_records[ptr].has_resulting_register) &&
               static_cast<max_size_t>(ROB_records[ptr].resulting_register_idx) == rs2) {

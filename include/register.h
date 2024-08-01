@@ -40,8 +40,9 @@ public:
 		this->_M_new = static_cast<max_size_t>(value);
 	}
   auto peek() const -> max_size_t { // this function should only be used for convinience within the same module
-    if(this->_M_assigned) return this->_M_new;
-    return this->_M_old;
+    // if(this->_M_assigned) return this->_M_new;
+    // return this->_M_old;
+    return this->_M_new;
   }
 
 	explicit operator max_size_t() const { return this->_M_old; }
