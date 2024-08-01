@@ -129,14 +129,14 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
       DEBUG_CERR << "\tfull_ins_id: " << std::hex << static_cast<max_size_t>(full_ins_id) << std::endl;
       DEBUG_CERR << "\tins_ROB_index: " << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
       DEBUG_CERR << "\tins_self_PC: " << std::hex << std::setw(8) << std::setfill('0')
-                << static_cast<max_size_t>(issuing_PC) << std::endl;
+                 << static_cast<max_size_t>(issuing_PC) << std::endl;
       DEBUG_CERR << "\tins_imm: " << std::hex << static_cast<max_size_t>(decoded_imm) << std::endl;
       DEBUG_CERR << "\thas_decoded_rs1: " << std::hex << std::setw(8) << std::setfill('0')
-                << static_cast<max_size_t>(has_decoded_rs1) << std::endl;
+                 << static_cast<max_size_t>(has_decoded_rs1) << std::endl;
       DEBUG_CERR << "\thas_decoded_rs2: " << std::hex << std::setw(8) << std::setfill('0')
-                << static_cast<max_size_t>(has_decoded_rs2) << std::endl;
+                 << static_cast<max_size_t>(has_decoded_rs2) << std::endl;
       DEBUG_CERR << "\tstored in positon " << std::dec << static_cast<max_size_t>(cur_queue_tail) << " of LSQ"
-                << std::endl;
+                 << std::endl;
       // LSQ_queue[cur_queue_tail].Q1 <= decoded_rs1;  // temporarily, no use
       // LSQ_queue[cur_queue_tail].Q2 <= decoded_rs2;  // temporarily, no use
     } else
@@ -153,28 +153,28 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
         LSQ_queue[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
         DEBUG_CERR << "\t from register file: LSQ_queue[last_idx].V1=" << std::hex << std::setw(8) << std::setfill('0')
-                  << static_cast<max_size_t>(LSQ_queue[last_idx].V1) << std::endl;
+                   << static_cast<max_size_t>(LSQ_queue[last_idx].V1) << std::endl;
       }
       if (bool(LSQ_queue[last_idx].E2) && bool(rs2_nodep)) {
         LSQ_queue[last_idx].V2 <= rs2_value;
         LSQ_queue[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
         DEBUG_CERR << "from register file: LSQ_queue[last_idx].V2=" << std::hex << std::setw(8) << std::setfill('0')
-                  << static_cast<max_size_t>(LSQ_queue[last_idx].V2) << std::endl;
+                   << static_cast<max_size_t>(LSQ_queue[last_idx].V2) << std::endl;
       }
       if (bool(LSQ_queue[last_idx].E1) && (!bool(rs1_nodep)) && bool(rs1_is_in_ROB)) {
         LSQ_queue[last_idx].V1 <= rs1_in_ROB_value;
         LSQ_queue[last_idx].D1 <= 1;
         last_cycle_V1_proccessed = true;
         DEBUG_CERR << "\t from ROB: LSQ_queue[last_idx].V1=" << std::hex << std::setw(8) << std::setfill('0')
-                  << static_cast<max_size_t>(LSQ_queue[last_idx].V1) << std::endl;
+                   << static_cast<max_size_t>(LSQ_queue[last_idx].V1) << std::endl;
       }
       if (bool(LSQ_queue[last_idx].E2) && (!bool(rs2_nodep)) && bool(rs2_is_in_ROB)) {
         LSQ_queue[last_idx].V2 <= rs2_in_ROB_value;
         LSQ_queue[last_idx].D2 <= 1;
         last_cycle_V2_proccessed = true;
         DEBUG_CERR << "from ROB: LSQ_queue[last_idx].V2=" << std::hex << std::setw(8) << std::setfill('0')
-                  << static_cast<max_size_t>(LSQ_queue[last_idx].V2) << std::endl;
+                   << static_cast<max_size_t>(LSQ_queue[last_idx].V2) << std::endl;
       }
       DEBUG_CERR << "End of processing dependency information from register file and ROB" << std::endl;
     }
@@ -189,7 +189,8 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
       DEBUG_CERR << "rs1_deps=" << std::dec << static_cast<max_size_t>(rs1_deps) << std::endl;
       DEBUG_CERR << "rs2_deps=" << std::dec << static_cast<max_size_t>(rs2_deps) << std::endl;
       uint32_t ptr = static_cast<max_size_t>(LSQ_head);
-      while (ptr != static_cast<max_size_t>(LSQ_tail)) {
+      while (ptr != static_cast<max_size_t>(LSQ_tail) ||
+             (static_cast<max_size_t>(LSQ_remain_space) == 0 && ptr == static_cast<max_size_t>(LSQ_head))) {
         DEBUG_CERR << "\tptr=" << std::dec << ptr << std::endl;
         if ((!bool(has_accepted_ins_last_cycle)) || ptr != last_idx) {
           DEBUG_CERR << "\tnormal" << std::endl;
@@ -320,13 +321,13 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
               request_address_output <=
                   (static_cast<uint32_t>(LSQ_queue[head].V1) + static_cast<uint32_t>(LSQ_queue[head].ins_imm));
               DEBUG_CERR << "\trequest_address_output=" << std::hex << std::setfill('0') << std::setw(8)
-                        << request_address_output.peek() << std::endl;
+                         << request_address_output.peek() << std::endl;
               DEBUG_CERR << "\toperand1=" << std::hex << std::setfill('0') << std::setw(8)
-                        << static_cast<uint32_t>(LSQ_queue[head].V1) << std::endl;
+                         << static_cast<uint32_t>(LSQ_queue[head].V1) << std::endl;
               DEBUG_CERR << "\timm=" << std::hex << std::setfill('0') << std::setw(8)
-                        << static_cast<uint32_t>(LSQ_queue[head].ins_imm) << std::endl;
+                         << static_cast<uint32_t>(LSQ_queue[head].ins_imm) << std::endl;
               DEBUG_CERR << "\tROB_index=" << std::dec << static_cast<uint32_t>(LSQ_queue[head].ins_ROB_index)
-                        << std::endl;
+                         << std::endl;
               request_data_output <= static_cast<uint32_t>(LSQ_queue[head].V2);
             } else {
               throw std::runtime_error("Invalid instruction");
@@ -339,7 +340,7 @@ struct LoadStoreQueue : public dark::Module<LoadStoreQueue_Input, LoadStoreQueue
     LSQ_remain_space <= next_remain_space;
     LSQ_remain_space_output <= next_remain_space;
     DEBUG_CERR << "LSQ_queue[16]'s V1: " << std::hex << std::setfill('0') << std::setw(8)
-              << static_cast<max_size_t>(LSQ_queue[16].V1) << std::endl;
+               << static_cast<max_size_t>(LSQ_queue[16].V1) << std::endl;
   }
 };
 }  // namespace ZYM
