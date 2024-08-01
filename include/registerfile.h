@@ -9,7 +9,7 @@ const static size_t kTotalRegisters = 32;
 struct RegisterFile_Input {
   // receive control signal from CSU
   dark::Wire<1> reset;
-  // dark::Wire<1> force_clear_receiver;
+  dark::Wire<1> force_clear_receiver;
   dark::Wire<1> is_issuing;
   dark::Wire<1> issue_type;
   dark::Wire<5> issue_ROB_index;
@@ -70,10 +70,21 @@ struct RegisterFile : public dark::Module<RegisterFile_Input, RegisterFile_Outpu
         registers[static_cast<max_size_t>(commit_reg_index)] <= commit_reg_value;
         if (register_deps[static_cast<max_size_t>(commit_reg_index)] == commit_ins_ROB_index) {
           std::cerr << "The dependency is cleared" << std::endl;
-          register_nodep[static_cast<max_size_t>(commit_reg_index)] <= 1;
+          if (!(bool(is_issuing) && bool(has_decoded_rd) &&
+                (static_cast<max_size_t>(decoded_rd) == static_cast<max_size_t>(commit_reg_index))))
+            register_nodep[static_cast<max_size_t>(commit_reg_index)] <= 1;
           dependency_cleared = true;
         }
       }
+    }
+    if (bool(force_clear_receiver)) {
+      for (auto &reg : register_deps) {
+        reg <= 0;
+      }
+      for (auto &reg : register_nodep) {
+        reg <= 1;
+      }
+      return;
     }
     if (bool(is_issuing)) {
       std::cerr << "Register File Found CSU is issuing" << std::endl;

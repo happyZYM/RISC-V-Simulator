@@ -255,6 +255,8 @@ struct CentralScheduleUnit
         commit_has_resulting_register <= record.has_resulting_register;
         commit_reg_index <= record.resulting_register_idx;
         commit_reg_value <= record.resulting_register_value;
+        std::cerr << "commit_reg_index=" << std::dec << commit_reg_index.peek() << " commit_reg_value=" << std::hex
+                  << std::setw(8) << std::setfill('0') << std::uppercase << commit_reg_value.peek() << std::endl;
         commit_ins_ROB_index <= i;
         actual_PC <= static_cast<max_size_t>(record.resulting_PC);
         if (static_cast<max_size_t>(record.PC_mismatch_mark) == 1) {
@@ -265,6 +267,10 @@ struct CentralScheduleUnit
         if (record.instruction == 0x0ff00513) {
           halt_signal <= (0b100000000 | static_cast<max_size_t>(a0));
           std::cerr << "halting with code " << std::dec << int(halt_signal.peek()) << std::endl;
+        }
+        if (record.instruction == 0x1B07A503) {
+          std::cerr << "judgeResult loaded from memory is " << std::dec
+                    << static_cast<max_size_t>(record.resulting_register_value) << std::endl;
         }
       }
     }
@@ -331,7 +337,8 @@ struct CentralScheduleUnit
           // can issue
           std::cerr << "csu is issuing mem instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
                     << instruction << " full_ins_id= " << std::hex << std::setw(8) << std::setfill('0')
-                    << std::uppercase << full_ins_id << std::endl;
+                    << std::uppercase << full_ins_id << " with ROB_index=" << std::dec
+                    << static_cast<max_size_t>(ROB_tail) << std::endl;
           is_issuing <= 1;
           has_instruction_issued_last_cycle <= 1;
           uint32_t tail = static_cast<max_size_t>(ROB_tail);
@@ -370,7 +377,8 @@ struct CentralScheduleUnit
           // can issue
           std::cerr << "csu is issuing alu instruct " << std::hex << std::setw(8) << std::setfill('0') << std::uppercase
                     << instruction << " full_ins_id= " << std::hex << std::setw(8) << std::setfill('0')
-                    << std::uppercase << full_ins_id << std::endl;
+                    << std::uppercase << full_ins_id << " with ROB_index=" << std::dec
+                    << static_cast<max_size_t>(ROB_tail) << std::endl;
           is_issuing <= 1;
           has_instruction_issued_last_cycle <= 1;
           uint32_t tail = static_cast<max_size_t>(ROB_tail);

@@ -145,6 +145,8 @@ struct ALU : public dark::Module<ALU_Input, ALU_Output> {
         alu_status <= 0b10;
         result_ROB_index <= request_ROB_index;
         result <= static_cast<max_size_t>(operand1) + imm;
+        std::cerr << "\taddi: operand1=" << std::hex << static_cast<max_size_t>(operand1) << " imm=" << std::hex
+                  << static_cast<max_size_t>(imm) << " result=" << std::hex << result.peek() << std::endl;
         completed_alu_resulting_PC <= static_cast<max_size_t>(request_PC) + 4;
         return;
       }

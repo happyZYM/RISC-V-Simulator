@@ -1,4 +1,5 @@
 #pragma once
+#include <iterator>
 #include "concept.h"
 #ifndef RESERVATIONSTATION_H
 #include <array>
@@ -88,6 +89,7 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
       RS_remaining_space <= 32;
       RS_remain_space_output <= 32;
       request_full_id <= 0;
+      has_accepted_ins_last_cycle <= 0;
       return;
     }
     if (bool(force_clear_receiver)) {
@@ -97,6 +99,7 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
       RS_remaining_space <= 32;
       RS_remain_space_output <= 32;
       request_full_id <= 0;
+      has_accepted_ins_last_cycle <= 0;
       return;
     }
     uint32_t next_remain_space = static_cast<max_size_t>(RS_remaining_space);
@@ -127,6 +130,9 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
       RS_records[deposit_index].E2 <= has_decoded_rs2;
       RS_records[deposit_index].D1 <= 1;
       RS_records[deposit_index].D2 <= 1;
+      std::cerr << "Reserve Station has accepted an instruction from CSU" << std::endl;
+      std::cerr << "\tdeposit_index=" << std::dec << deposit_index << std::endl;
+      std::cerr << "\tROB_index=" << std::dec << static_cast<max_size_t>(issue_ROB_index) << std::endl;
     } else
       has_accepted_ins_last_cycle <= 0;
     uint32_t last_idx = static_cast<max_size_t>(last_cycle_ins_RS_index);
@@ -167,15 +173,16 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     bool should_monitor_V2 =
         bool(has_accepted_ins_last_cycle) && bool(RS_records[last_idx].E2) && (!last_cycle_V2_proccessed);
     auto process_listend_data = [&](uint32_t res_ROB_index, uint32_t res_value) -> void {
+      std::cerr << "\tres_ROB_index=" << std::dec << res_ROB_index << std::endl;
       for (uint32_t ptr = 0; ptr < 32; ptr++) {
         if (RS_records[ptr].state == 0) continue;
         if ((!bool(has_accepted_ins_last_cycle)) || ptr != last_idx) {
           dark::debug::assert(RS_records[ptr].state == 2, "RS_records[ptr].state != 2");
-          if (static_cast<max_size_t>(RS_records[ptr].Q1) == res_ROB_index) {
+          if ((!bool(RS_records[ptr].D1)) && static_cast<max_size_t>(RS_records[ptr].Q1) == res_ROB_index) {
             RS_records[ptr].V1 <= res_value;
             RS_records[ptr].D1 <= 1;
           }
-          if (static_cast<max_size_t>(RS_records[ptr].Q2) == res_ROB_index) {
+          if ((!bool(RS_records[ptr].D2)) && static_cast<max_size_t>(RS_records[ptr].Q2) == res_ROB_index) {
             RS_records[ptr].V2 <= res_value;
             RS_records[ptr].D2 <= 1;
           }
@@ -191,13 +198,14 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
             should_monitor_V2 = false;
           }
         }
-        ptr = (ptr + 1) % 32;
       }
     };
+    std::cerr << "Reservestation is listening data from ALU" << std::endl;
     if (static_cast<max_size_t>(alu_status_receiver) == 0b10) {
       process_listend_data(static_cast<max_size_t>(completed_aluins_ROB_index),
                            static_cast<max_size_t>(completed_aluins_result));
     }
+    std::cerr << "Reservestation is listening data from Memory" << std::endl;
     if (static_cast<max_size_t>(mem_status_receiver) == 0b10) {
       process_listend_data(static_cast<max_size_t>(completed_memins_ROB_index),
                            static_cast<max_size_t>(completed_memins_read_data));
@@ -237,6 +245,16 @@ struct ReserveStation : public dark::Module<ReserveStation_Input, ReserveStation
     if (!can_execute) request_full_id <= 0;
     RS_remaining_space <= next_remain_space;
     RS_remain_space_output <= next_remain_space;
+    std::cerr << "Reservestation: next_remain_space=" << std::dec << next_remain_space << std::endl;
+    int tot = 0;
+    for (int i = 0; i < 32; i++)
+      if (static_cast<max_size_t>(RS_records[i].state) == 0) tot++;
+    std::cerr << "\tcurrently there are " << std::dec << tot
+              << " remain spaces based on state but RS_remaining_space says " << std::dec
+              << static_cast<max_size_t>(RS_remaining_space) << std::endl;
+    if (tot != static_cast<max_size_t>(RS_remaining_space)) {
+      throw std::runtime_error("Reservestation: RS_remaining_space is not consistent with RS_records");
+    }
   }
 };
 }  // namespace ZYM

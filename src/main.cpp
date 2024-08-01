@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
   RWConnect(alu.result, csu.completed_aluins_result);
   RWConnect(alu.completed_alu_resulting_PC, csu.completed_alu_resulting_PC);
   // csu <-> register file
-  // RWConnect(csu.force_clear_announcer, rf.force_clear_receiver);
+  RWConnect(csu.force_clear_announcer, rf.force_clear_receiver);
   RWConnect(csu.is_issuing, rf.is_issuing);
   RWConnect(csu.issue_type, rf.issue_type);
   RWConnect(csu.issue_ROB_index, rf.issue_ROB_index);
