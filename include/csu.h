@@ -337,7 +337,7 @@ struct CentralScheduleUnit
         // memory instruction
         int32_t actual_remain_space = static_cast<max_size_t>(load_store_queue_emptyspace_receiver) -
                                       static_cast<max_size_t>(has_instruction_issued_last_cycle);
-        if (ROB_next_remain_space > 0 && actual_remain_space > 0) {
+        if (ROB_next_remain_space > 4 && actual_remain_space > 0) {
           // can issue
           DEBUG_CERR << "csu is issuing mem instruct " << std::hex << std::setw(8) << std::setfill('0')
                      << std::uppercase << instruction << " full_ins_id= " << std::hex << std::setw(8)
