@@ -7,6 +7,7 @@
 #ifndef CSU_H
 #include <array>
 #include <functional>
+#include <random>
 #include <tuple>
 #include "tools.h"
 namespace ZYM {
@@ -100,6 +101,10 @@ struct CentralScheduleUnit
   std::function<max_size_t(max_size_t)> instruction_fetcher;
   bool instruction_fetcher_initialized = false;
   inline uint8_t ReadBit(uint32_t data, int pos) { return (data >> pos) & 1; }
+  long long total_predictions = 0;
+  long long incorrect_predictions = 0;
+  const unsigned int RndSeed = std::random_device{}();
+  std::mt19937 rnd;
   inline void WriteBit(uint32_t &data, int pos, uint8_t bit) {
     data &= ~(1 << pos);
     data |= bit << pos;
@@ -202,7 +207,7 @@ struct CentralScheduleUnit
   }
 
  public:
-  CentralScheduleUnit() { ; }
+  CentralScheduleUnit() : rnd(RndSeed) { ; }
   void SetInstructionFetcher(std::function<max_size_t(max_size_t)> fetcher) {
     if (instruction_fetcher_initialized) throw std::runtime_error("Instruction fetcher has been initialized");
     instruction_fetcher = fetcher;
@@ -263,15 +268,16 @@ struct CentralScheduleUnit
         if (static_cast<max_size_t>(record.PC_mismatch_mark) == 1) {
           force_clear_announcer <= 1;
           DEBUG_CERR << "[warning] csu is announcing rolling back due to PC mismatch" << std::endl;
+          incorrect_predictions++;
         }
         ROB_next_remain_space++;
         if (record.instruction == 0x0ff00513) {
           halt_signal <= (0b100000000 | static_cast<max_size_t>(a0));
           DEBUG_CERR << "halting with code " << std::dec << int(halt_signal.peek()) << std::endl;
-        }
-        if (record.instruction == 0x1B07A503) {
-          DEBUG_CERR << "judgeResult loaded from memory is " << std::dec
-                     << static_cast<max_size_t>(record.resulting_register_value) << std::endl;
+          std::cerr << "Total predictions: " << total_predictions << std::endl;
+          std::cerr << "Incorrect predictions: " << incorrect_predictions << std::endl;
+          std::cerr << "Prediction rate: " << (1.0 - static_cast<double>(incorrect_predictions) / total_predictions)
+                    << std::endl;
         }
       }
     }
@@ -409,7 +415,14 @@ struct CentralScheduleUnit
               case 0b1100011:
                 // branch
                 ROB_records[tail].resulting_PC_ready <= 0;
-                ROB_records[tail].resulting_PC <= static_cast<max_size_t>(predicted_PC) + decoded_imm;  // just guess
+                if (decoded_imm >> 31) {  // this may be a long jump
+                  ROB_records[tail].resulting_PC <= static_cast<max_size_t>(predicted_PC) + decoded_imm;  // just guess
+                } else {
+                  ROB_records[tail].resulting_PC <=
+                      static_cast<max_size_t>(predicted_PC) +
+                          4;  // we bet the compiler will make the more possible destination nearer
+                }
+                total_predictions++;
                 break;
             }
           } else {
